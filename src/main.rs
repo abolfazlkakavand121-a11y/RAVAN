@@ -56,6 +56,14 @@ async fn main() -> Result<()> {
             };
             proxy::run(address, cfg.proxy).await?;
         }
+        Commands::Analyze { url, json } => {
+            let parsed = url::Url::parse(&url).context("invalid analysis URL")?;
+            let result = diagnostics::analyzer::run(parsed).await;
+            report::emit_analysis(&result, json);
+            if !result.success {
+                anyhow::bail!("protocol analysis did not complete successfully");
+            }
+        }
         Commands::Diag(args) => match args.command {
             DiagnosticCommands::Dns { host, json } => {
                 let result = diagnostics::dns::run(&host).await;
