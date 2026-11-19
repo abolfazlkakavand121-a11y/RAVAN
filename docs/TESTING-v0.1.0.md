@@ -21,7 +21,10 @@ Coverage includes:
 - Semaphore capacity enforcement and permit release after a session ends.
 - Bounded shutdown behavior: allow short-lived sessions to finish, then abort remaining sessions after the grace period.
 - HTTP response parsing, redirect accounting, and safe handling of non-UTF-8 bytes in unrelated response headers.
+- TLS client acceptance of a locally trusted test certificate and rejection of an untrusted certificate chain or hostname mismatch.
 - Diagnostic target parsing, IPv6 host normalization, and removal of credentials/query data from displayed targets.
+
+The TLS certificate and private key under `tests/fixtures` are generated, test-only fixtures; they are not used by the application or trusted by its production root store.
 
 Run locally with:
 
