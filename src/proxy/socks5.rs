@@ -378,6 +378,7 @@ mod tests {
         assert_eq!(reply[1], 0x08);
         assert!(proxy_task.await.unwrap().is_err());
     }
+
     async fn read_reply(client: &mut TcpStream) -> (u8, u8) {
         let mut header = [0_u8; 4];
         client.read_exact(&mut header).await.unwrap();
@@ -444,8 +445,7 @@ mod tests {
             destination.shutdown().await.unwrap();
         });
 
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
 
@@ -478,8 +478,7 @@ mod tests {
         let destination_address = destination_listener.local_addr().unwrap();
         drop(destination_listener);
 
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
 
