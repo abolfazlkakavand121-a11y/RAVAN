@@ -75,10 +75,21 @@ pub async fn run(address: SocketAddr, config: ProxyConfig) -> Result<()> {
 
 /// Run the loopback-only HTTP proxy listener.
 pub async fn run_http(address: SocketAddr, config: ProxyConfig) -> Result<()> {
-    Config { proxy: config.clone() }.validate()?;
-    anyhow::ensure!(address.ip().is_loopback(), "RAVAN refuses to listen on a non-loopback HTTP proxy address");
-    anyhow::ensure!(address.port() != 0, "port 0 is not supported for the HTTP proxy CLI listener");
-    let listener = TcpListener::bind(address).await.with_context(|| format!("bind HTTP proxy listener at {address}"))?;
+    Config {
+        proxy: config.clone(),
+    }
+    .validate()?;
+    anyhow::ensure!(
+        address.ip().is_loopback(),
+        "RAVAN refuses to listen on a non-loopback HTTP proxy address"
+    );
+    anyhow::ensure!(
+        address.port() != 0,
+        "port 0 is not supported for the HTTP proxy CLI listener"
+    );
+    let listener = TcpListener::bind(address)
+        .await
+        .with_context(|| format!("bind HTTP proxy listener at {address}"))?;
     let actual = listener.local_addr()?;
     let semaphore = Arc::new(Semaphore::new(config.max_connections));
     let mut tasks = JoinSet::new();
