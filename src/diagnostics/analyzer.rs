@@ -41,15 +41,26 @@ async fn run_inner(url: Url, target: String, family: &str) -> Result<ProtocolAna
     }
 
     let host = normalized_host(&url).context("URL has no hostname")?;
-    let port = url.port_or_known_default().context("URL has no known port")?;
+    let port = url
+        .port_or_known_default()
+        .context("URL has no known port")?;
     let dns_started = std::time::Instant::now();
     let addresses = match host.parse::<IpAddr>() {
         Ok(ip) => vec![ip],
         Err(_) => dns::resolve(&host).await.context("DNS resolution failed")?,
     };
 
-    let addresses = addresses.into_iter().filter(|ip| match family { "ipv4" => ip.is_ipv4(), "ipv6" => ip.is_ipv6(), _ => true }).collect::<Vec<_>>();
-    if addresses.is_empty() { bail!("DNS returned no addresses matching --ip-family {family}"); }
+    let addresses = addresses
+        .into_iter()
+        .filter(|ip| match family {
+            "ipv4" => ip.is_ipv4(),
+            "ipv6" => ip.is_ipv6(),
+            _ => true,
+        })
+        .collect::<Vec<_>>();
+    if addresses.is_empty() {
+        bail!("DNS returned no addresses matching --ip-family {family}");
+    }
 
     let dns_report = DiagnosticReport::success(
         "DNS",
@@ -97,7 +108,13 @@ async fn run_inner(url: Url, target: String, family: &str) -> Result<ProtocolAna
         "No resolved address completed all applicable stages. See per-address TCP/TLS/HTTP results for details.".to_owned()
     };
 
-    Ok(ProtocolAnalysisReport { check: "PROTOCOL_ANALYSIS".to_owned(), target, success, stages, summary })
+    Ok(ProtocolAnalysisReport {
+        check: "PROTOCOL_ANALYSIS".to_owned(),
+        target,
+        success,
+        stages,
+        summary,
+    })
 }
 
 #[cfg(test)]
@@ -118,7 +135,12 @@ mod tests {
             check: "PROTOCOL_ANALYSIS".to_owned(),
             target: "https://example.com/".to_owned(),
             success: true,
-            stages: vec![DiagnosticReport::success("DNS", "example.com", 1, serde_json::json!({"addresses":["192.0.2.1"]}))],
+            stages: vec![DiagnosticReport::success(
+                "DNS",
+                "example.com",
+                1,
+                serde_json::json!({"addresses":["192.0.2.1"]}),
+            )],
             summary: "completed".to_owned(),
         };
         let value = serde_json::to_value(report).unwrap();
