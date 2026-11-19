@@ -37,7 +37,7 @@ pub enum Commands {
 
 #[derive(Debug, Args)]
 pub struct ProxyArgs {
-    /// Loopback listener address. Defaults to config or 127.0.0.1:2080.
+    /// Override the configured loopback listener address.
     #[arg(long)]
     pub listen: Option<SocketAddr>,
 }
