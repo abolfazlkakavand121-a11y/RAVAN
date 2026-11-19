@@ -15,6 +15,10 @@ pub async fn resolve(host: &str) -> Result<Vec<IpAddr>> {
         bail!("expected a hostname or IP literal");
     }
 
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Ok(vec![ip]);
+    }
+
     let addresses = timeout(Duration::from_secs(10), lookup_host((host, 0)))
         .await
         .context("system DNS lookup timed out after 10 seconds")??
@@ -59,7 +63,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn resolve_accepts_ip_literals() {
+    async fn resolve_accepts_ip_literals_without_dns_lookup() {
         let addresses = resolve("127.0.0.1").await.unwrap();
         assert_eq!(addresses, vec!["127.0.0.1".parse::<IpAddr>().unwrap()]);
     }
