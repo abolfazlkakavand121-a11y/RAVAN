@@ -177,7 +177,12 @@ pub async fn run_pinned(url: Url, address: SocketAddr) -> DiagnosticReport {
         );
     }
 
-    match timeout(Duration::from_secs(15), request_once_at(&url, Some(address))).await {
+    match timeout(
+        Duration::from_secs(15),
+        request_once_at(&url, Some(address)),
+    )
+    .await
+    {
         Err(_) => DiagnosticReport::failure(
             "HTTP",
             format!("{target} via {address}"),
@@ -325,7 +330,11 @@ fn parse_response_headers(bytes: &[u8]) -> Result<(u16, Option<String>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpListener, task::JoinHandle};
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+        task::JoinHandle,
+    };
 
     #[tokio::test]
     async fn pinned_probe_uses_the_supplied_ip_without_resolving_the_url_host() {
@@ -334,18 +343,26 @@ mod tests {
         let server: JoinHandle<()> = tokio::spawn(async move {
             let (mut stream, _) = listener.accept().await.unwrap();
             let mut request = vec![0_u8; 1024];
-            let _ = stream.read(&mut request).await.unwrap();
+            let bytes_read = stream.read(&mut request).await.unwrap();
+            assert!(bytes_read > 0);
             stream
                 .write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n")
                 .await
                 .unwrap();
         });
 
-        let url = Url::parse(&format!("http://host-that-does-not-resolve.invalid:{}/probe", address.port()))
-            .unwrap();
+        let url = Url::parse(&format!(
+            "http://host-that-does-not-resolve.invalid:{}/probe",
+            address.port()
+        ))
+        .unwrap();
         let report = run_pinned(url, address).await;
 
-        assert!(report.success, "unexpected HTTP probe failure: {:?}", report.error);
+        assert!(
+            report.success,
+            "unexpected HTTP probe failure: {:?}",
+            report.error
+        );
         assert_eq!(report.details["peer"], address.to_string());
         assert_eq!(report.details["status"], 204);
         server.await.unwrap();
