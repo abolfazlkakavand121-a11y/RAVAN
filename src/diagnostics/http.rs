@@ -2,7 +2,10 @@ use super::{normalized_host, safe_target, tls};
 use crate::report::DiagnosticReport;
 use anyhow::{bail, Context, Result};
 use serde_json::json;
-use std::time::{Duration, Instant};
+use std::{
+    net::SocketAddr,
+    time::{Duration, Instant},
+};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::TcpStream,
@@ -131,14 +134,99 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
     }
 }
 
+/// Sends one HEAD request to an explicit IP. Redirects are reported but not followed,
+/// because a redirect may name a different host and would break the single-IP trial.
+pub async fn run_pinned(url: Url, address: SocketAddr) -> DiagnosticReport {
+    let started = Instant::now();
+    let target = safe_target(&url);
+
+    if !matches!(url.scheme(), "http" | "https") {
+        return DiagnosticReport::failure(
+            "HTTP",
+            target,
+            started.elapsed().as_millis(),
+            "only http:// and https:// URLs are supported",
+        );
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return DiagnosticReport::failure(
+            "HTTP",
+            target,
+            started.elapsed().as_millis(),
+            "URL credentials are not allowed",
+        );
+    }
+
+    let port = match url.port_or_known_default() {
+        Some(port) => port,
+        None => {
+            return DiagnosticReport::failure(
+                "HTTP",
+                target,
+                started.elapsed().as_millis(),
+                "URL has no known port",
+            )
+        }
+    };
+    if address.port() != port {
+        return DiagnosticReport::failure(
+            "HTTP",
+            target,
+            started.elapsed().as_millis(),
+            "pinned socket address port does not match the URL",
+        );
+    }
+
+    match timeout(Duration::from_secs(15), request_once_at(&url, Some(address))).await {
+        Err(_) => DiagnosticReport::failure(
+            "HTTP",
+            format!("{target} via {address}"),
+            started.elapsed().as_millis(),
+            "request to pinned IP timed out after 15 seconds",
+        ),
+        Ok(Err(error)) => DiagnosticReport::failure(
+            "HTTP",
+            format!("{target} via {address}"),
+            started.elapsed().as_millis(),
+            error,
+        ),
+        Ok(Ok((status, location))) => DiagnosticReport::success(
+            "HTTP",
+            format!("{target} via {address}"),
+            started.elapsed().as_millis(),
+            json!({
+                "status": status,
+                "method": "HEAD",
+                "redirects_followed": 0,
+                "redirect_present": location.is_some(),
+                "peer": address.to_string(),
+                "pinned_ip": address.ip().to_string(),
+                "ip_family": if address.is_ipv4() { "ipv4" } else { "ipv6" }
+            }),
+        ),
+    }
+}
+
 async fn request_once(url: &Url) -> Result<(u16, Option<String>)> {
+    request_once_at(url, None).await
+}
+
+async fn request_once_at(
+    url: &Url,
+    pinned_address: Option<SocketAddr>,
+) -> Result<(u16, Option<String>)> {
     let host = normalized_host(url).context("URL has no hostname")?;
     let port = url
         .port_or_known_default()
         .context("URL has no known port")?;
-    let stream = TcpStream::connect((host.as_str(), port))
-        .await
-        .with_context(|| format!("connect to {host}:{port}"))?;
+    let stream = match pinned_address {
+        Some(address) => TcpStream::connect(address)
+            .await
+            .with_context(|| format!("connect to pinned IP {address}"))?,
+        None => TcpStream::connect((host.as_str(), port))
+            .await
+            .with_context(|| format!("connect to {host}:{port}"))?,
+    };
 
     if url.scheme() == "https" {
         let tls_stream = tls::connector()?
@@ -237,6 +325,31 @@ fn parse_response_headers(bytes: &[u8]) -> Result<(u16, Option<String>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::{io::{AsyncReadExt, AsyncWriteExt}, net::TcpListener, task::JoinHandle};
+
+    #[tokio::test]
+    async fn pinned_probe_uses_the_supplied_ip_without_resolving_the_url_host() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server: JoinHandle<()> = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = vec![0_u8; 1024];
+            let _ = stream.read(&mut request).await.unwrap();
+            stream
+                .write_all(b"HTTP/1.1 204 No Content\r\nContent-Length: 0\r\n\r\n")
+                .await
+                .unwrap();
+        });
+
+        let url = Url::parse(&format!("http://host-that-does-not-resolve.invalid:{}/probe", address.port()))
+            .unwrap();
+        let report = run_pinned(url, address).await;
+
+        assert!(report.success, "unexpected HTTP probe failure: {:?}", report.error);
+        assert_eq!(report.details["peer"], address.to_string());
+        assert_eq!(report.details["status"], 204);
+        server.await.unwrap();
+    }
 
     #[test]
     fn parses_status_and_location_headers() {
