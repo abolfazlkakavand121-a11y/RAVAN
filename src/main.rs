@@ -42,6 +42,7 @@ async fn main() -> Result<()> {
                 }
             );
             println!("SOCKS5 listen address: {}", cfg.proxy.listen_addr);
+            println!("HTTP proxy listen address: {}", cfg.proxy.http_listen_addr);
             println!(
                 "SOCKS5 handshake timeout: {} seconds",
                 cfg.proxy.handshake_timeout_secs
@@ -67,6 +68,14 @@ async fn main() -> Result<()> {
                     .context("invalid proxy.listen_addr in config")?,
             };
             proxy::run(address, cfg.proxy).await?;
+        }
+        Commands::HttpProxy(args) => {
+            let cfg = config::Config::load().context("load RAVAN configuration")?;
+            let address = match args.listen {
+                Some(value) => value,
+                None => cfg.proxy.http_listen_addr.parse().context("invalid proxy.http_listen_addr in config")?,
+            };
+            proxy::run_http(address, cfg.proxy).await?;
         }
         Commands::Analyze {
             url,
