@@ -15,8 +15,12 @@ pub struct ProtocolAnalysisReport {
 }
 
 pub async fn run(url: Url) -> ProtocolAnalysisReport {
+    run_with_family(url, "both").await
+}
+
+pub async fn run_with_family(url: Url, family: &str) -> ProtocolAnalysisReport {
     let target = safe_target(&url);
-    match run_inner(url, target.clone()).await {
+    match run_inner(url, target.clone(), family).await {
         Ok(report) => report,
         Err(error) => ProtocolAnalysisReport {
             check: "PROTOCOL_ANALYSIS".to_owned(),
@@ -28,7 +32,7 @@ pub async fn run(url: Url) -> ProtocolAnalysisReport {
     }
 }
 
-async fn run_inner(url: Url, target: String) -> Result<ProtocolAnalysisReport> {
+async fn run_inner(url: Url, target: String, family: &str) -> Result<ProtocolAnalysisReport> {
     if !matches!(url.scheme(), "http" | "https") {
         bail!("only http:// and https:// URLs are supported");
     }
@@ -43,6 +47,9 @@ async fn run_inner(url: Url, target: String) -> Result<ProtocolAnalysisReport> {
         Ok(ip) => vec![ip],
         Err(_) => dns::resolve(&host).await.context("DNS resolution failed")?,
     };
+
+    let addresses = addresses.into_iter().filter(|ip| match family { "ipv4" => ip.is_ipv4(), "ipv6" => ip.is_ipv6(), _ => true }).collect::<Vec<_>>();
+    if addresses.is_empty() { bail!("DNS returned no addresses matching --ip-family {family}"); }
 
     let dns_report = DiagnosticReport::success(
         "DNS",
