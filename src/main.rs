@@ -73,7 +73,11 @@ async fn main() -> Result<()> {
             let cfg = config::Config::load().context("load RAVAN configuration")?;
             let address = match args.listen {
                 Some(value) => value,
-                None => cfg.proxy.http_listen_addr.parse().context("invalid proxy.http_listen_addr in config")?,
+                None => cfg
+                    .proxy
+                    .http_listen_addr
+                    .parse()
+                    .context("invalid proxy.http_listen_addr in config")?,
             };
             proxy::run_http(address, cfg.proxy).await?;
         }
