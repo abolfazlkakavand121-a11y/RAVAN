@@ -1,0 +1,28 @@
+[package]
+name = "ravan"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+description = "Local network diagnostics and SOCKS5 connectivity utility for Android Termux"
+license = "MIT"
+repository = "https://github.com/abolfazlkakavand121-a11y/RAVAN"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.5", features = ["derive"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+toml = "0.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+url = "2.5"
+webpki-roots = "1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "abort"
