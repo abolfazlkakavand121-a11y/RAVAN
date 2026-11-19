@@ -319,7 +319,8 @@ where
         format!("{host_header}:{port}")
     };
     let request = format!(
-        "HEAD {request_target} HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: RAVAN/0.1.0\r\nAccept: */*\r\nConnection: close\r\n\r\n"
+        "HEAD {request_target} HTTP/1.1\r\nHost: {host_header}\r\nUser-Agent: RAVAN/{}\r\nAccept: */*\r\nConnection: close\r\n\r\n",
+        env!("CARGO_PKG_VERSION")
     );
     stream
         .write_all(request.as_bytes())
