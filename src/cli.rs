@@ -18,9 +18,16 @@ pub enum Commands {
     Doctor,
     /// Run the local SOCKS5 TCP proxy in the foreground.
     Proxy(ProxyArgs),
-    /// Run a staged DNS, TCP, TLS, and HTTP protocol analysis.
+    /// Compare pinned IPv4/IPv6 protocol paths for an HTTP or HTTPS URL.
     Analyze {
         url: String,
+        /// Address families to test: all, ipv4, or ipv6.
+        #[arg(long, value_enum, default_value = "all")]
+        ip_family: crate::diagnostics::analyzer::IpFamily,
+        /// Number of sequential attempts per resolved IP (1-5).
+        #[arg(long, default_value_t = 1, value_parser = clap::value_parser!(u8).range(1..=5))]
+        repeats: u8,
+        /// Print a machine-readable JSON report.
         #[arg(long)]
         json: bool,
     },
