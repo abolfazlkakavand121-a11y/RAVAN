@@ -4,7 +4,9 @@ RAVAN is an experimental, independent network diagnostics and local connectivity
 
 ## Project status
 
-The initial Rust engine is under development. The repository contains the first implementation of the CLI, local SOCKS5 TCP proxy, configuration handling, and DNS/TCP/TLS/HTTP diagnostic modules. It has not yet been compiled or tested on a Termux device.
+The first Rust engine is under development. The repository contains the CLI, local SOCKS5 TCP proxy, configuration handling, and DNS/TCP/TLS/HTTP diagnostic modules. It has not yet been compiled or tested on a Termux device.
+
+The hosted CI pipeline checks committed Rust formatting, runs Clippy and automated tests, and builds a Linux-host release binary. The SOCKS5 regression suite includes loopback TCP forwarding in both directions. These checks do not establish Android/Termux compatibility or reachability on a real mobile network.
 
 ## Initial commands
 
@@ -29,9 +31,10 @@ TLS diagnostics validate certificate chains and hostnames using public roots. RA
 
 A successful cross-build does not prove that the binary runs on Termux, and neither a build nor a diagnostic proves filtering bypass. Actual Termux device testing is a release gate.
 
-## Technical specification
+## Technical specification and tests
 
-See docs/SPECIFICATION-v0.1.0.md for the intended first-release scope, behavior, security requirements, and acceptance criteria.
+- [Technical specification](docs/SPECIFICATION-v0.1.0.md)
+- [Test plan and current coverage](docs/TESTING-v0.1.0.md)
 
 ## Security
 
