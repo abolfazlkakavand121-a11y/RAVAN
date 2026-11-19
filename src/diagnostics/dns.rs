@@ -22,7 +22,10 @@ pub async fn resolve(host: &str) -> Result<Vec<IpAddr>> {
         .context("system DNS lookup timed out after 10 seconds")??;
 
     let addresses: BTreeSet<IpAddr> = resolved.map(|address| address.ip()).collect();
-    ensure!(!addresses.is_empty(), "system resolver returned no addresses");
+    ensure!(
+        !addresses.is_empty(),
+        "system resolver returned no addresses"
+    );
 
     Ok(addresses.into_iter().collect())
 }
@@ -37,11 +40,6 @@ pub async fn run(host: &str) -> DiagnosticReport {
             started.elapsed().as_millis(),
             json!({ "addresses": addresses }),
         ),
-        Err(error) => DiagnosticReport::failure(
-            "DNS",
-            host,
-            started.elapsed().as_millis(),
-            error,
-        ),
+        Err(error) => DiagnosticReport::failure("DNS", host, started.elapsed().as_millis(), error),
     }
 }
