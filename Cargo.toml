@@ -1,6 +1,6 @@
 [package]
 name = "ravan"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.80"
 description = "Local network diagnostics and SOCKS5 connectivity utility for Android Termux"
