@@ -498,8 +498,10 @@ mod tests {
 
     #[tokio::test]
     async fn closes_clients_that_do_not_complete_handshake_in_time() {
-        let mut config = ProxyConfig::default();
-        config.handshake_timeout_secs = 1;
+        let config = ProxyConfig {
+            handshake_timeout_secs: 1,
+            ..ProxyConfig::default()
+        };
         let (proxy_address, proxy_task) = spawn_single_client_proxy(config).await;
         let _client = TcpStream::connect(proxy_address).await.unwrap();
 
