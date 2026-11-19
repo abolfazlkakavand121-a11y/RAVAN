@@ -18,6 +18,7 @@ The hosted CI pipeline checks committed Rust formatting, runs Clippy and automat
 - ravan diag tcp example.com:443
 - ravan diag tls example.com:443
 - ravan diag http https://example.com/
+- ravan analyze https://example.com/ (staged DNS/TCP/TLS/HTTP analysis)
 
 Diagnostic commands accept an optional --json flag.
 
@@ -39,6 +40,10 @@ A successful cross-build does not prove that the binary runs on Termux, and neit
 - GitHub Actions uploads the Android ARM64 binary, archive, and SHA-256 checksum as a 30-day workflow artifact
 
 A successful Android cross-build is not the same as a runtime test on a physical Termux device.
+
+## Protocol Analyzer (first milestone)
+
+The `ravan analyze` command runs DNS, TCP, TLS (for HTTPS), and HTTP checks in order and stops at the first failed stage. It reports the likely failing layer; it does not perform deep packet inspection, traffic modification, UDP/QUIC, or filtering evasion. See [Protocol Analyzer design](docs/PROTOCOL-ANALYZER-v0.2.0.md).
 
 ## Technical specification and tests
 
