@@ -76,8 +76,11 @@ jobs:
         run: |
           mkdir -p dist
           install -m 0755 target/aarch64-linux-android/release/ravan dist/ravan-android-arm64
-          sha256sum dist/ravan-android-arm64 > dist/ravan-android-arm64.sha256
-          tar -czf dist/ravan-android-arm64.tar.gz -C dist ravan-android-arm64
+          (
+            cd dist
+            sha256sum ravan-android-arm64 > ravan-android-arm64.sha256
+            tar -czf ravan-android-arm64.tar.gz ravan-android-arm64
+          )
           ls -lh dist
 
       - name: Upload Android ARM64 artifact
