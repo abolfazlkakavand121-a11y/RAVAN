@@ -332,7 +332,11 @@ mod tests {
     fn rewrites_absolute_http_url_and_drops_proxy_credentials() {
         let raw = b"GET http://example.com:8080/a?q=1 HTTP/1.1\r\nHost: ignored.example\r\nProxy-Authorization: Basic secret\r\nX-Test: yes\r\n\r\n";
         match parse_request_head(raw).unwrap() {
-            RequestKind::Forward { host, port, rewritten_head } => {
+            RequestKind::Forward {
+                host,
+                port,
+                rewritten_head,
+            } => {
                 assert_eq!(host, "example.com");
                 assert_eq!(port, 8080);
                 let text = String::from_utf8(rewritten_head).unwrap();
