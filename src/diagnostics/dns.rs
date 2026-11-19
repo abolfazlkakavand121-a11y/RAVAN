@@ -45,12 +45,7 @@ pub async fn run(host: &str) -> DiagnosticReport {
                 json!({ "addresses": addresses }),
             )
         }
-        Err(error) => DiagnosticReport::failure(
-            "DNS",
-            host,
-            started.elapsed().as_millis(),
-            error,
-        ),
+        Err(error) => DiagnosticReport::failure("DNS", host, started.elapsed().as_millis(), error),
     }
 }
 
