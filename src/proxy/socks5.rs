@@ -123,12 +123,32 @@ async fn send_reply(client: &mut TcpStream, code: u8) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::{
+        io::AsyncReadExt,
+        net::TcpListener,
+    };
 
-    #[test]
-    fn success_reply_uses_socks5_reply_prefix() {
-        let packet = [SOCKS_VERSION, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0];
-        assert_eq!(packet.len(), 10);
-        assert_eq!(packet[0], SOCKS_VERSION);
-        assert_eq!(packet[1], 0x00);
+    #[tokio::test]
+    async fn negotiates_no_auth_and_domain_connect_request_over_tcp() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+
+        let client_task = tokio::spawn(async move {
+            let mut client = TcpStream::connect(address).await.unwrap();
+            let mut request = vec![5, 1, 0, 5, 1, 0, 3, 11];
+            request.extend_from_slice(b"example.com");
+            request.extend_from_slice(&[0x01, 0xBB]);
+            client.write_all(&request).await.unwrap();
+
+            let mut method_selection = [0_u8; 2];
+            client.read_exact(&mut method_selection).await.unwrap();
+            method_selection
+        });
+
+        let (mut server, _) = listener.accept().await.unwrap();
+        let destination = negotiate(&mut server).await.unwrap();
+
+        assert_eq!(destination, ("example.com".to_owned(), 443));
+        assert_eq!(client_task.await.unwrap(), [SOCKS_VERSION, 0x00]);
     }
 }

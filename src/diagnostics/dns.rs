@@ -1,7 +1,7 @@
 use crate::report::DiagnosticReport;
 use serde_json::json;
-use std::{collections::BTreeSet, time::Instant};
-use tokio::net::lookup_host;
+use std::{collections::BTreeSet, time::{Duration, Instant}};
+use tokio::{net::lookup_host, time::timeout};
 
 pub async fn run(host: &str) -> DiagnosticReport {
     let started = Instant::now();
@@ -9,8 +9,8 @@ pub async fn run(host: &str) -> DiagnosticReport {
         return DiagnosticReport::failure("DNS", host, started.elapsed().as_millis(), "expected a hostname or IP literal");
     }
 
-    match lookup_host((host, 0)).await {
-        Ok(addresses) => {
+    match timeout(Duration::from_secs(10), lookup_host((host, 0))).await {
+        Ok(Ok(addresses)) => {
             let addresses: BTreeSet<String> = addresses.map(|address| address.ip().to_string()).collect();
             let elapsed = started.elapsed().as_millis();
             if addresses.is_empty() {
@@ -19,6 +19,7 @@ pub async fn run(host: &str) -> DiagnosticReport {
                 DiagnosticReport::success("DNS", host, elapsed, json!({ "addresses": addresses }))
             }
         }
-        Err(error) => DiagnosticReport::failure("DNS", host, started.elapsed().as_millis(), error),
+        Ok(Err(error)) => DiagnosticReport::failure("DNS", host, started.elapsed().as_millis(), error),
+        Err(_) => DiagnosticReport::failure("DNS", host, started.elapsed().as_millis(), "system DNS lookup timed out after 10 seconds"),
     }
 }
