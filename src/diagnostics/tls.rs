@@ -69,12 +69,7 @@ pub async fn run(target: &str) -> DiagnosticReport {
     };
 
     match connect_tls(&host, port).await {
-        Ok(stream) => report_tls_success(
-            target,
-            started.elapsed().as_millis(),
-            &stream,
-            None,
-        ),
+        Ok(stream) => report_tls_success(target, started.elapsed().as_millis(), &stream, None),
         Err(error) => {
             DiagnosticReport::failure("TLS", target, started.elapsed().as_millis(), error)
         }
