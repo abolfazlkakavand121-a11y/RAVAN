@@ -18,14 +18,18 @@ const MAX_REDIRECTS: usize = 3;
 const MAX_ADDRESS_ATTEMPT: Duration = Duration::from_secs(8);
 
 pub async fn run(url: Url) -> DiagnosticReport {
-    run_with_ip(url, None).await
+    run_with_ip(url, None, "both").await
 }
 
-pub async fn run_pinned(url: Url, ip: IpAddr) -> DiagnosticReport {
-    run_with_ip(url, Some(ip)).await
+pub async fn run_pinned(url: Url, ip: IpAddr, family: &str) -> DiagnosticReport {
+    run_with_ip(url, Some(ip), family).await
 }
 
-async fn run_with_ip(mut url: Url, mut pinned_ip: Option<IpAddr>) -> DiagnosticReport {
+async fn run_with_ip(
+    mut url: Url,
+    mut pinned_ip: Option<IpAddr>,
+    family: &str,
+) -> DiagnosticReport {
     let started = Instant::now();
     let original_target = safe_target(&url);
     if !matches!(url.scheme(), "http" | "https") {
@@ -107,6 +111,23 @@ async fn run_with_ip(mut url: Url, mut pinned_ip: Option<IpAddr>) -> DiagnosticR
                 Ok(Ok(addresses)) => addresses,
             },
         };
+
+        let addresses = addresses
+            .into_iter()
+            .filter(|ip| match family {
+                "ipv4" => ip.is_ipv4(),
+                "ipv6" => ip.is_ipv6(),
+                _ => true,
+            })
+            .collect::<Vec<_>>();
+        if addresses.is_empty() {
+            return DiagnosticReport::failure(
+                "HTTP",
+                &current_target,
+                started.elapsed().as_millis(),
+                format!("no resolved address matched --ip-family {family} for {host}"),
+            );
+        }
 
         let resolved_ips = addresses
             .iter()
@@ -413,7 +434,7 @@ mod tests {
         });
 
         let url = Url::parse(&format!("http://localhost:{}/start", address.port())).unwrap();
-        let report = run_pinned(url, IpAddr::V4(Ipv4Addr::LOCALHOST)).await;
+        let report = run_pinned(url, IpAddr::V4(Ipv4Addr::LOCALHOST), "ipv4").await;
         assert!(
             report.success,
             "HTTP redirect chain failed: {:?}",
