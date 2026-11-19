@@ -2,7 +2,7 @@ use super::{normalized_host, safe_target, tls};
 use crate::report::DiagnosticReport;
 use anyhow::{bail, Context, Result};
 use serde_json::json;
-use std::time::{Duration, Instant};
+use std::{net::{IpAddr, SocketAddr}, time::{Duration, Instant}};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::TcpStream,
@@ -13,7 +13,15 @@ use url::Url;
 const MAX_HEADER_BYTES: usize = 16 * 1024;
 const MAX_REDIRECTS: usize = 3;
 
-pub async fn run(mut url: Url) -> DiagnosticReport {
+pub async fn run(url: Url) -> DiagnosticReport {
+    run_with_ip(url, None).await
+}
+
+pub async fn run_pinned(url: Url, ip: IpAddr) -> DiagnosticReport {
+    run_with_ip(url, Some(ip)).await
+}
+
+async fn run_with_ip(mut url: Url, mut pinned_ip: Option<IpAddr>) -> DiagnosticReport {
     let started = Instant::now();
     let original_target = safe_target(&url);
     if !matches!(url.scheme(), "http" | "https") {
@@ -46,7 +54,7 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
             );
         }
 
-        match timeout(remaining, request_once(&url)).await {
+        match timeout(remaining, request_once(&url, pinned_ip.take())).await {
             Err(_) => {
                 return DiagnosticReport::failure(
                     "HTTP",
@@ -131,14 +139,17 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
     }
 }
 
-async fn request_once(url: &Url) -> Result<(u16, Option<String>)> {
+async fn request_once(url: &Url, pinned_ip: Option<IpAddr>) -> Result<(u16, Option<String>)> {
     let host = normalized_host(url).context("URL has no hostname")?;
     let port = url
         .port_or_known_default()
         .context("URL has no known port")?;
-    let stream = TcpStream::connect((host.as_str(), port))
-        .await
-        .with_context(|| format!("connect to {host}:{port}"))?;
+    let stream = match pinned_ip {
+        Some(ip) => TcpStream::connect(SocketAddr::new(ip, port)).await
+            .with_context(|| format!("connect to pinned endpoint {ip}:{port}"))?,
+        None => TcpStream::connect((host.as_str(), port)).await
+            .with_context(|| format!("connect to {host}:{port}"))?,
+    };
 
     if url.scheme() == "https" {
         let tls_stream = tls::connector()?
