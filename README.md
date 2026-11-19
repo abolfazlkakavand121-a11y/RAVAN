@@ -29,6 +29,8 @@ RAVAN is not a censorship-circumvention guarantee. A local proxy cannot restore 
 
 The v0.4.0 local proxies bind to loopback only. SOCKS5 supports TCP CONNECT. The HTTP proxy supports ordinary HTTP forwarding and HTTPS CONNECT tunneling; it does not decrypt or modify TLS. Neither listener provides UDP, QUIC, authentication, or system-wide VPN routing.
 
+When a separate Android VPN app routes traffic through RAVAN running in Termux, the Termux app must be excluded from that VPN; otherwise RAVAN's own outbound sockets can be routed back into the same VPN, causing a routing loop. See the [PattNG P73 Xray profile notes](examples/pattng-p73/README.md).
+
 TLS diagnostics validate certificate chains and hostnames using public roots. RAVAN does not install a custom certificate authority or disable certificate verification.
 
 A successful cross-build does not prove that the binary runs on Termux, and neither a build nor a diagnostic proves filtering bypass. Actual Termux device testing is a release gate.
