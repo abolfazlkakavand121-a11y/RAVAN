@@ -1,27 +1,30 @@
 # RAVAN
 
-RAVAN is an experimental, independent network diagnostics and local connectivity toolkit for Android and Termux.
+RAVAN is an experimental, independent network diagnostics and local connectivity toolkit for Android and Termux, written in Rust.
 
 ## Project status
 
-Early development. The first milestone focuses on a reliable local SOCKS5 proxy, transparent diagnostics, reproducible builds, and a verified Termux installer.
+Specification phase for v0.1.0. No executable engine or release binary has been published yet.
 
-RAVAN does not use TLS interception or install a custom certificate authority. TLS connections must retain normal certificate and hostname verification.
+The first milestone is intentionally focused:
+- A loopback-only SOCKS5 TCP CONNECT proxy.
+- DNS, TCP, TLS, and HTTP/HTTPS diagnostics.
+- Safe local configuration and privacy-conscious reports.
+- Reproducible checks and Android ARM64 build validation.
+- A verified Termux installation path after real-device testing.
 
 ## Important limitations
 
-RAVAN is not a censorship-circumvention guarantee. A local proxy cannot restore reachability when a destination is blocked at the routing/IP layer, nor can it bypass destination-side regional restrictions without an appropriate remote network path.
+RAVAN is not a censorship-circumvention guarantee. A local proxy cannot restore reachability when a destination is blocked at the routing/IP layer, and it cannot bypass destination-side regional restrictions without an appropriate remote network path.
 
-A successful build only proves that the source compiled and tests passed; it does not prove that a network path bypasses filtering.
+The v0.1.0 proxy forwards TCP bytes; it does not decrypt or modify TLS. RAVAN will not install a custom certificate authority or disable normal certificate and hostname verification.
 
-## Planned first milestone
+A successful cross-build only proves that the source compiled. It does not prove that the binary runs on Termux, and it does not prove that a network path bypasses filtering. Actual Termux device testing is a release gate.
 
-- Standalone Go implementation; no Xray dependency.
-- Local SOCKS5 listener bound to loopback only.
-- DNS, TCP, TLS, and HTTP connectivity diagnostics.
-- Termux-friendly installation and lifecycle commands.
-- Automated tests and Android/Termux-target build validation through GitHub Actions.
+## Technical specification
+
+See [docs/SPECIFICATION-v0.1.0.md](docs/SPECIFICATION-v0.1.0.md) for the approved first-release scope, command contract, architecture, security requirements, and acceptance criteria.
 
 ## Security
 
-Do not expose the local proxy on public interfaces. Do not commit passwords, tokens, private keys, or other secrets. Report security issues privately to the repository owner.
+Do not expose the local proxy on public interfaces. Do not commit passwords, tokens, private keys, or other secrets. Security issues should be reported privately to the repository owner.
