@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 #[command(
     name = "ravan",
     version,
-    about = "Local network diagnostics and SOCKS5 proxy"
+    about = "Local network diagnostics with SOCKS5 and HTTP proxy support"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -18,11 +18,16 @@ pub enum Commands {
     Doctor,
     /// Run the local SOCKS5 TCP proxy in the foreground.
     Proxy(ProxyArgs),
+    /// Run the local HTTP proxy (HTTP forwarding and HTTPS CONNECT).
+    HttpProxy(ProxyArgs),
     /// Run a staged DNS, TCP, TLS, and HTTP protocol analysis.
     Analyze {
         url: String,
         #[arg(long)]
         json: bool,
+        /// Select address family: both, ipv4, or ipv6.
+        #[arg(long, value_parser = ["both", "ipv4", "ipv6"], default_value = "both")]
+        ip_family: String,
     },
     /// Run an explicit network diagnostic.
     Diag(DiagArgs),
@@ -32,7 +37,7 @@ pub enum Commands {
 
 #[derive(Debug, Args)]
 pub struct ProxyArgs {
-    /// Loopback listener address. Defaults to config or 127.0.0.1:2080.
+    /// Override the configured loopback listener address.
     #[arg(long)]
     pub listen: Option<SocketAddr>,
 }
@@ -82,6 +87,6 @@ pub struct ConfigArgs {
 pub enum ConfigCommands {
     /// Create a default configuration without overwriting an existing file.
     Init,
-    /// Show effective settings (v0.1.0 stores no credentials).
+    /// Show effective local settings.
     Show,
 }

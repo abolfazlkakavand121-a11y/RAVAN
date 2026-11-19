@@ -17,6 +17,7 @@ pub struct Config {
 #[serde(default)]
 pub struct ProxyConfig {
     pub listen_addr: String,
+    pub http_listen_addr: String,
     pub handshake_timeout_secs: u64,
     pub connect_timeout_secs: u64,
     pub max_connections: usize,
@@ -26,6 +27,7 @@ impl Default for ProxyConfig {
     fn default() -> Self {
         Self {
             listen_addr: "127.0.0.1:2080".to_owned(),
+            http_listen_addr: "127.0.0.1:1820".to_owned(),
             handshake_timeout_secs: 5,
             connect_timeout_secs: 10,
             max_connections: 128,
@@ -60,6 +62,19 @@ impl Config {
         anyhow::ensure!(
             address.port() != 0,
             "proxy.listen_addr must use a non-zero port"
+        );
+        let http_address: std::net::SocketAddr = self
+            .proxy
+            .http_listen_addr
+            .parse()
+            .context("proxy.http_listen_addr must be a valid socket address")?;
+        anyhow::ensure!(
+            http_address.ip().is_loopback(),
+            "proxy.http_listen_addr must be a loopback address"
+        );
+        anyhow::ensure!(
+            http_address.port() != 0,
+            "proxy.http_listen_addr must use a non-zero port"
         );
         anyhow::ensure!(
             (1..=30).contains(&self.proxy.handshake_timeout_secs),
@@ -127,12 +142,20 @@ mod tests {
         let config = Config::default();
         assert!(config.validate().is_ok());
         assert_eq!(config.proxy.listen_addr, "127.0.0.1:2080");
+        assert_eq!(config.proxy.http_listen_addr, "127.0.0.1:1820");
     }
 
     #[test]
     fn public_listener_is_rejected() {
         let mut config = Config::default();
         config.proxy.listen_addr = "0.0.0.0:2080".to_owned();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn public_http_listener_is_rejected() {
+        let mut config = Config::default();
+        config.proxy.http_listen_addr = "0.0.0.0:1820".to_owned();
         assert!(config.validate().is_err());
     }
 

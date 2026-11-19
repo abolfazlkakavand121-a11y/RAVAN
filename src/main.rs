@@ -36,12 +36,25 @@ async fn main() -> Result<()> {
             println!(
                 "Configuration status: {}",
                 if path.exists() {
-                    "found"
+                    "loaded from file and validated"
                 } else {
-                    "using safe defaults"
+                    "file not found; using safe defaults"
                 }
             );
             println!("SOCKS5 listen address: {}", cfg.proxy.listen_addr);
+            println!("HTTP proxy listen address: {}", cfg.proxy.http_listen_addr);
+            println!(
+                "SOCKS5 handshake timeout: {} seconds",
+                cfg.proxy.handshake_timeout_secs
+            );
+            println!(
+                "Outbound connect timeout: {} seconds",
+                cfg.proxy.connect_timeout_secs
+            );
+            println!(
+                "Maximum concurrent connections: {}",
+                cfg.proxy.max_connections
+            );
             println!("Network tests: not run; use an explicit diagnostic command.");
         }
         Commands::Proxy(args) => {
@@ -56,9 +69,29 @@ async fn main() -> Result<()> {
             };
             proxy::run(address, cfg.proxy).await?;
         }
-        Commands::Analyze { url, json } => {
+        Commands::HttpProxy(args) => {
+            let cfg = config::Config::load().context("load RAVAN configuration")?;
+            let address = match args.listen {
+                Some(value) => value,
+                None => cfg
+                    .proxy
+                    .http_listen_addr
+                    .parse()
+                    .context("invalid proxy.http_listen_addr in config")?,
+            };
+            proxy::run_http(address, cfg.proxy).await?;
+        }
+        Commands::Analyze {
+            url,
+            json,
+            ip_family,
+        } => {
             let parsed = url::Url::parse(&url).context("invalid analysis URL")?;
-            let result = diagnostics::analyzer::run(parsed).await;
+            let result = if ip_family == "both" {
+                diagnostics::analyzer::run(parsed).await
+            } else {
+                diagnostics::analyzer::run_with_family(parsed, &ip_family).await
+            };
             report::emit_analysis(&result, json);
             if !result.success {
                 anyhow::bail!("protocol analysis did not complete successfully");

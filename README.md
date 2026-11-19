@@ -4,9 +4,9 @@ RAVAN is an experimental, independent network diagnostics and local connectivity
 
 ## Project status
 
-The first Rust engine is under development. The repository contains the CLI, local SOCKS5 TCP proxy, configuration handling, and DNS/TCP/TLS/HTTP diagnostic modules. It has not yet been compiled or tested on a Termux device.
+RAVAN **v0.4.0** is an experimental Rust networking tool for Android and Termux. It includes local SOCKS5 and HTTP proxy listeners, configuration handling, DNS/TCP/TLS/HTTP diagnostics, and the Protocol Analyzer with per-address IP pinning and redirect-hop reporting.
 
-The hosted CI pipeline checks committed Rust formatting, runs Clippy and automated tests, and builds a Linux-host release binary. The SOCKS5 regression suite includes loopback TCP forwarding in both directions. These checks do not establish Android/Termux compatibility or reachability on a real mobile network.
+The hosted CI pipeline checks formatting, runs Clippy and automated tests, builds a Linux release binary, and cross-builds Android ARM64. The Android binary has also been run manually on a Termux device: analyzer checks for IPv4/IPv6 and redirect handling passed, and the SOCKS5 listener was tested with several HTTPS destinations. These results demonstrate the tested paths only; they do not guarantee connectivity on every network.
 
 ## Initial commands
 
@@ -14,6 +14,7 @@ The hosted CI pipeline checks committed Rust formatting, runs Clippy and automat
 - ravan config init
 - ravan config show
 - ravan proxy
+- ravan http-proxy (HTTP forwarding and HTTPS CONNECT)
 - ravan diag dns example.com
 - ravan diag tcp example.com:443
 - ravan diag tls example.com:443
@@ -26,7 +27,7 @@ Diagnostic commands accept an optional --json flag.
 
 RAVAN is not a censorship-circumvention guarantee. A local proxy cannot restore reachability when a destination is blocked at the routing/IP layer, and it cannot bypass destination-side regional restrictions without an appropriate remote network path.
 
-The v0.1.0 proxy forwards TCP bytes; it does not decrypt or modify TLS. It supports SOCKS5 TCP CONNECT only, binds to loopback only, and does not provide UDP, QUIC, or system-wide VPN routing.
+The v0.4.0 local proxies bind to loopback only. SOCKS5 supports TCP CONNECT. The HTTP proxy supports ordinary HTTP forwarding and HTTPS CONNECT tunneling; it does not decrypt or modify TLS. Neither listener provides UDP, QUIC, authentication, or system-wide VPN routing.
 
 TLS diagnostics validate certificate chains and hostnames using public roots. RAVAN does not install a custom certificate authority or disable certificate verification.
 
@@ -43,7 +44,7 @@ A successful Android cross-build is not the same as a runtime test on a physical
 
 ## Protocol Analyzer (first milestone)
 
-The `ravan analyze` command runs DNS, TCP, TLS (for HTTPS), and HTTP checks in order and stops at the first failed stage. It reports the likely failing layer; it does not perform deep packet inspection, traffic modification, UDP/QUIC, or filtering evasion. See [Protocol Analyzer design](docs/PROTOCOL-ANALYZER-v0.2.0.md).
+The `ravan analyze` command runs DNS, TCP, TLS (for HTTPS), and HTTP checks against each selected address. The initial connection is pinned to the selected IP while preserving the hostname for TLS verification; redirect destinations are resolved and pinned independently. Use `--ip-family both|ipv4|ipv6` to select the address family. The analyzer does not perform deep packet inspection, traffic modification, UDP/QUIC, or filtering evasion. See [Protocol Analyzer design](docs/PROTOCOL-ANALYZER-v0.2.0.md).
 
 ## Technical specification and tests
 

@@ -3,7 +3,11 @@ use crate::report::DiagnosticReport;
 use anyhow::{Context, Result};
 use rustls::{pki_types::ServerName, ClientConfig, RootCertStore};
 use serde_json::json;
-use std::{net::IpAddr, sync::Arc, time::Duration};
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::Duration,
+};
 use tokio::{net::TcpStream, time::timeout};
 use tokio_rustls::{client::TlsStream, TlsConnector};
 
@@ -26,6 +30,23 @@ pub(crate) fn server_name(host: &str) -> Result<ServerName<'static>> {
     }
 }
 
+pub(crate) async fn connect_tls_pinned(
+    host: &str,
+    address: SocketAddr,
+) -> Result<TlsStream<TcpStream>> {
+    let stream = timeout(Duration::from_secs(10), TcpStream::connect(address))
+        .await
+        .context("TCP connection timed out")??;
+    let tls = timeout(
+        Duration::from_secs(10),
+        connector()?.connect(server_name(host)?, stream),
+    )
+    .await
+    .context("TLS handshake timed out")?
+    .context("TLS handshake failed")?;
+    Ok(tls)
+}
+
 pub(crate) async fn connect_tls(host: &str, port: u16) -> Result<TlsStream<TcpStream>> {
     let stream = timeout(Duration::from_secs(10), TcpStream::connect((host, port)))
         .await
@@ -38,6 +59,38 @@ pub(crate) async fn connect_tls(host: &str, port: u16) -> Result<TlsStream<TcpSt
     .context("TLS handshake timed out")?
     .context("TLS handshake failed")?;
     Ok(tls)
+}
+
+pub async fn run_pinned(target: &str, host: &str, address: SocketAddr) -> DiagnosticReport {
+    let started = std::time::Instant::now();
+    match connect_tls_pinned(host, address).await {
+        Ok(stream) => {
+            let connection = stream.get_ref().1;
+            let version = connection
+                .protocol_version()
+                .map(|value| format!("{value:?}"))
+                .unwrap_or_else(|| "unknown".to_owned());
+            let cipher = connection
+                .negotiated_cipher_suite()
+                .map(|value| format!("{:?}", value.suite()))
+                .unwrap_or_else(|| "unknown".to_owned());
+            DiagnosticReport::success(
+                "TLS",
+                target,
+                started.elapsed().as_millis(),
+                json!({
+                    "peer": address.to_string(),
+                    "tls_version": version,
+                    "cipher_suite": cipher,
+                    "certificate_validation": "enabled",
+                    "server_name": host
+                }),
+            )
+        }
+        Err(error) => {
+            DiagnosticReport::failure("TLS", target, started.elapsed().as_millis(), error)
+        }
+    }
 }
 
 pub async fn run(target: &str) -> DiagnosticReport {
