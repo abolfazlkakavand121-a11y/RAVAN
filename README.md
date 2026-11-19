@@ -4,9 +4,9 @@ RAVAN is an experimental, independent network diagnostics and local connectivity
 
 ## Project status
 
-The first Rust engine is under development. The repository contains the CLI, local SOCKS5 TCP proxy, configuration handling, and DNS/TCP/TLS/HTTP diagnostic modules. It has not yet been compiled or tested on a Termux device.
+The first Rust engine includes the CLI, local SOCKS5 TCP proxy, configuration handling, and DNS/TCP/TLS/HTTP diagnostics. The Android ARM64 build and the earlier analyzer milestone were installed and exercised on a Termux device. Each new analyzer change still requires its own device-side verification.
 
-The hosted CI pipeline checks committed Rust formatting, runs Clippy and automated tests, and builds a Linux-host release binary. The SOCKS5 regression suite includes loopback TCP forwarding in both directions. These checks do not establish Android/Termux compatibility or reachability on a real mobile network.
+The hosted CI pipeline checks Rust formatting, runs Clippy and automated tests, builds the Android ARM64 target, and audits dependencies. These checks do not establish reachability on a real mobile network.
 
 ## Initial commands
 
@@ -18,9 +18,24 @@ The hosted CI pipeline checks committed Rust formatting, runs Clippy and automat
 - ravan diag tcp example.com:443
 - ravan diag tls example.com:443
 - ravan diag http https://example.com/
-- ravan analyze https://example.com/ (staged DNS/TCP/TLS/HTTP analysis)
+- ravan analyze https://example.com/ (per-IP DNS/TCP/TLS/HTTP analysis)
 
 Diagnostic commands accept an optional --json flag.
+
+## Protocol Analyzer v0.3
+
+The analyzer resolves a hostname once, keeps the resulting IP addresses separate, and pins each TCP, TLS, and HTTP probe to the same selected IP. TLS still uses the original hostname for SNI and normal certificate verification.
+
+Examples:
+
+- ravan analyze https://example.com/ --ip-family all
+- ravan analyze https://example.com/ --ip-family ipv4
+- ravan analyze https://example.com/ --ip-family ipv6
+- ravan analyze https://example.com/ --ip-family all --repeats 3 --json
+
+The --repeats range is 1-5 and defaults to 1. The pinned HTTP probe records redirects but does not follow them, because a redirect may change hosts and break the single-IP trial. The standalone ravan diag http command retains its existing redirect behavior.
+
+See docs/PROTOCOL-ANALYZER-v0.3.0.md.
 
 ## Important limitations
 
@@ -30,26 +45,22 @@ The v0.1.0 proxy forwards TCP bytes; it does not decrypt or modify TLS. It suppo
 
 TLS diagnostics validate certificate chains and hostnames using public roots. RAVAN does not install a custom certificate authority or disable certificate verification.
 
-A successful cross-build does not prove that the binary runs on Termux, and neither a build nor a diagnostic proves filtering bypass. Actual Termux device testing is a release gate.
+A successful cross-build does not prove that the latest binary runs on Termux, and neither a build nor a diagnostic proves filtering bypass. Actual device testing remains a release gate for every milestone.
 
 ## Build and validation
 
-- Android ARM64 cross-build: `aarch64-linux-android`
-- Android NDK: `30.0.16248370` (r30 LTS), API 21 baseline
-- Rust dependency versions are pinned in `Cargo.lock`
-- GitHub Actions uploads the Android ARM64 binary, archive, and SHA-256 checksum as a 30-day workflow artifact
+- Android ARM64 cross-build: aarch64-linux-android
+- Android NDK: 30.0.16248370 (r30 LTS), API 21 baseline
+- Rust dependency versions are pinned in Cargo.lock
+- GitHub Actions uploads the Android ARM64 binary, archive, and SHA-256 checksum as a workflow artifact
 
 A successful Android cross-build is not the same as a runtime test on a physical Termux device.
 
-## Protocol Analyzer (first milestone)
-
-The `ravan analyze` command runs DNS, TCP, TLS (for HTTPS), and HTTP checks in order and stops at the first failed stage. It reports the likely failing layer; it does not perform deep packet inspection, traffic modification, UDP/QUIC, or filtering evasion. See [Protocol Analyzer design](docs/PROTOCOL-ANALYZER-v0.2.0.md).
-
 ## Technical specification and tests
 
-- [Technical specification](docs/SPECIFICATION-v0.1.0.md)
-- [Test plan and current coverage](docs/TESTING-v0.1.0.md)
-- [Android ARM64 build instructions and validation status](docs/ANDROID-BUILD.md)
+- Technical specification: docs/SPECIFICATION-v0.1.0.md
+- Test plan and current coverage: docs/TESTING-v0.1.0.md
+- Android ARM64 build instructions and validation status: docs/ANDROID-BUILD.md
 
 ## Security
 
