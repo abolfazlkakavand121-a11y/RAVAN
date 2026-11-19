@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
 
 permissions:
   contents: read
@@ -24,11 +26,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable action
         with:
+          toolchain: 1.100.0
           components: rustfmt, clippy
 
       # Do not rewrite the checkout before checking formatting.
@@ -43,3 +46,9 @@ jobs:
 
       - name: Build release binary for the CI host
         run: cargo build --locked --release
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked --version 0.23.0
+
+      - name: Audit locked dependencies
+        run: cargo audit --deny warnings

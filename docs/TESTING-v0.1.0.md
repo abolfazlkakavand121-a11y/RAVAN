@@ -13,8 +13,14 @@ Coverage includes:
 - Rejection of malformed reserved fields and unsupported address types.
 - Rejection of empty, non-UTF-8, and zero-port destination values.
 - Parsing a domain-name CONNECT request without relying on external DNS.
-- A real loopback TCP CONNECT with payload transfer in both directions.
-- Loopback-only listener configuration and bounded timeout/connection settings.
+- Real loopback TCP CONNECT with payload transfer in both directions over IPv4 and IPv6.
+- Domain-name CONNECT using the local `localhost` resolver and a loopback destination.
+- Protocol failure replies for refused destinations, malformed requests, unsupported commands, and invalid address fields.
+- Handshake timeout behavior.
+- Loopback-only listener configuration, non-zero listener ports, and bounded timeout/connection settings.
+- Semaphore capacity enforcement and permit release after a session ends.
+- Bounded shutdown behavior: allow short-lived sessions to finish, then abort remaining sessions after the grace period.
+- HTTP response parsing, redirect accounting, and safe handling of non-UTF-8 bytes in unrelated response headers.
 - Diagnostic target parsing, IPv6 host normalization, and removal of credentials/query data from displayed targets.
 
 Run locally with:
@@ -27,6 +33,8 @@ cargo build --release
 ```
 
 ## What these tests do not prove
+
+The HTTP diagnostic applies a 15-second overall deadline across all redirects (maximum three followed redirects). Proxy shutdown gives active sessions up to two seconds to finish, then cancels remaining sessions.
 
 A successful CI run does **not** prove:
 
@@ -46,7 +54,8 @@ Before calling the SOCKS5 proxy device-validated, test on an actual ARM64 Termux
 2. Start `ravan proxy` and confirm it binds only to `127.0.0.1:2080`.
 3. Configure a local test client to use SOCKS5 at `127.0.0.1:2080`.
 4. Confirm a known reachable HTTPS destination transfers data.
-5. Stop RAVAN with Ctrl+C and confirm the listener exits.
+5. Stop RAVAN with Ctrl+C; confirm the listener stops accepting new clients, short-lived sessions may finish during the two-second grace period, and remaining sessions are closed.
 6. Repeat with Wi-Fi and mobile data separately; record failures without interpreting them as proof of filtering.
+7. Repeat the reconnect test after toggling airplane mode; confirm a new SOCKS5 request succeeds without restarting RAVAN, or record that a restart is required.
 
 Do not use a public or untrusted network listener. RAVAN's unauthenticated SOCKS5 mode is intended for loopback use only.
