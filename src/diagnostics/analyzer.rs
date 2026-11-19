@@ -2,6 +2,7 @@ use super::{dns, http, normalized_host, safe_target, tcp, tls};
 use crate::report::DiagnosticReport;
 use anyhow::{bail, Context, Result};
 use serde::Serialize;
+use std::net::{IpAddr, SocketAddr};
 use url::Url;
 
 #[derive(Debug, Serialize)]
@@ -36,80 +37,60 @@ async fn run_inner(url: Url, target: String) -> Result<ProtocolAnalysisReport> {
     }
 
     let host = normalized_host(&url).context("URL has no hostname")?;
-    let port = url
-        .port_or_known_default()
-        .context("URL has no known port")?;
-    let tcp_target = if host.contains(':') {
-        format!("[{host}]:{port}")
-    } else {
-        format!("{host}:{port}")
+    let port = url.port_or_known_default().context("URL has no known port")?;
+    let dns_started = std::time::Instant::now();
+    let addresses = match host.parse::<IpAddr>() {
+        Ok(ip) => vec![ip],
+        Err(_) => dns::resolve(&host).await.context("DNS resolution failed")?,
     };
 
-    let mut stages = Vec::with_capacity(4);
+    let dns_report = DiagnosticReport::success(
+        "DNS",
+        &host,
+        dns_started.elapsed().as_millis(),
+        serde_json::json!({ "addresses": addresses.iter().map(ToString::to_string).collect::<Vec<_>>() }),
+    );
+    let mut stages = vec![dns_report];
+    let mut successful_addresses = Vec::new();
 
-    let dns_report = dns::run(&host).await;
-    if !dns_report.success {
-        stages.push(dns_report);
-        return Ok(failed(
-            target,
-            stages,
-            "DNS resolution failed; TCP, TLS, and HTTP stages were not attempted.",
-        ));
-    }
-    stages.push(dns_report);
-
-    let tcp_report = tcp::run(&tcp_target).await;
-    if !tcp_report.success {
+    for ip in addresses {
+        let socket = SocketAddr::new(ip, port);
+        let endpoint = format!("{host}:{} via {ip}", port);
+        let tcp_report = tcp::run_pinned(&endpoint, socket).await;
+        let tcp_ok = tcp_report.success;
         stages.push(tcp_report);
-        return Ok(failed(
-            target,
-            stages,
-            "DNS succeeded, but TCP connection failed; higher protocol stages were not attempted.",
-        ));
-    }
-    stages.push(tcp_report);
-
-    if url.scheme() == "https" {
-        let tls_report = tls::run(&tcp_target).await;
-        if !tls_report.success {
-            stages.push(tls_report);
-            return Ok(failed(
-                target,
-                stages,
-                "DNS and TCP succeeded, but TLS negotiation or certificate validation failed.",
-            ));
+        if !tcp_ok {
+            continue;
         }
-        stages.push(tls_report);
-    }
 
-    let http_report = http::run(url).await;
-    if !http_report.success {
+        if url.scheme() == "https" {
+            let tls_report = tls::run_pinned(&endpoint, &host, socket).await;
+            let tls_ok = tls_report.success;
+            stages.push(tls_report);
+            if !tls_ok {
+                continue;
+            }
+        }
+
+        let http_report = http::run_pinned(url.clone(), ip).await;
+        let http_ok = http_report.success;
         stages.push(http_report);
-        return Ok(failed(
-            target,
-            stages,
-            "DNS and transport setup succeeded, but the HTTP exchange failed.",
-        ));
+        if http_ok {
+            successful_addresses.push(ip.to_string());
+        }
     }
-    stages.push(http_report);
 
-    Ok(ProtocolAnalysisReport {
-        check: "PROTOCOL_ANALYSIS".to_owned(),
-        target,
-        success: true,
-        stages,
-        summary: "All applicable stages completed. An HTTP status such as 403 or 404 still confirms that an HTTP server responded; it is not a transport failure.".to_owned(),
-    })
-}
+    let success = !successful_addresses.is_empty();
+    let summary = if success {
+        format!(
+            "Analysis completed successfully through pinned address(es): {}. Each initial TCP/TLS/HTTP connection used the same selected IP; redirect destinations are resolved independently.",
+            successful_addresses.join(", ")
+        )
+    } else {
+        "No resolved address completed all applicable stages. See per-address TCP/TLS/HTTP results for details.".to_owned()
+    };
 
-fn failed(target: String, stages: Vec<DiagnosticReport>, summary: &str) -> ProtocolAnalysisReport {
-    ProtocolAnalysisReport {
-        check: "PROTOCOL_ANALYSIS".to_owned(),
-        target,
-        success: false,
-        stages,
-        summary: summary.to_owned(),
-    }
+    Ok(ProtocolAnalysisReport { check: "PROTOCOL_ANALYSIS".to_owned(), target, success, stages, summary })
 }
 
 #[cfg(test)]
@@ -126,20 +107,17 @@ mod tests {
 
     #[test]
     fn analysis_report_serializes_stage_details() {
-        let report = failed(
-            "https://example.com/".to_owned(),
-            vec![DiagnosticReport::failure(
-                "DNS",
-                "example.com",
-                12,
-                "test failure",
-            )],
-            "DNS failed",
-        );
+        let report = ProtocolAnalysisReport {
+            check: "PROTOCOL_ANALYSIS".to_owned(),
+            target: "https://example.com/".to_owned(),
+            success: true,
+            stages: vec![DiagnosticReport::success("DNS", "example.com", 1, serde_json::json!({"addresses":["192.0.2.1"]}))],
+            summary: "completed".to_owned(),
+        };
         let value = serde_json::to_value(report).unwrap();
         assert_eq!(value["check"], "PROTOCOL_ANALYSIS");
-        assert_eq!(value["success"], false);
+        assert_eq!(value["success"], true);
         assert_eq!(value["stages"][0]["check"], "DNS");
-        assert_eq!(value["summary"], "DNS failed");
+        assert_eq!(value["summary"], "completed");
     }
 }
