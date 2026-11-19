@@ -407,16 +407,18 @@ mod tests {
             let second_request = String::from_utf8_lossy(&request[..count]).to_string();
             assert!(second_request.starts_with("HEAD /final HTTP/1.1"));
             second
-                .write_all(
-                    b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                )
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
                 .await
                 .unwrap();
         });
 
         let url = Url::parse(&format!("http://localhost:{}/start", address.port())).unwrap();
         let report = run_pinned(url, IpAddr::V4(Ipv4Addr::LOCALHOST)).await;
-        assert!(report.success, "HTTP redirect chain failed: {:?}", report.error);
+        assert!(
+            report.success,
+            "HTTP redirect chain failed: {:?}",
+            report.error
+        );
         assert_eq!(report.details["redirects_followed"], 1);
         let connections = report.details["connections"].as_array().unwrap();
         assert_eq!(connections.len(), 2);
