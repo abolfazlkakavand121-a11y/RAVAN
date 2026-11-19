@@ -353,7 +353,7 @@ fn parse_response_headers(bytes: &[u8]) -> Result<(u16, Option<String>)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{Ipv4Addr, SocketAddr};
+    use std::net::Ipv4Addr;
     use tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpListener,
