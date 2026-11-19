@@ -1,4 +1,4 @@
-use super::{safe_target, tls};
+use super::{normalized_host, safe_target, tls};
 use crate::report::DiagnosticReport;
 use anyhow::{bail, Context, Result};
 use serde_json::json;
@@ -61,7 +61,7 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
 }
 
 async fn request_once(url: &Url) -> Result<(u16, Option<String>)> {
-    let host = url.host_str().context("URL has no hostname")?.to_owned();
+    let host = normalized_host(url).context("URL has no hostname")?;
     let port = url.port_or_known_default().context("URL has no known port")?;
     let stream = TcpStream::connect((host.as_str(), port)).await
         .with_context(|| format!("connect to {host}:{port}"))?;

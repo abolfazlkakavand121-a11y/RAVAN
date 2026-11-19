@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.80"
 description = "Local network diagnostics and SOCKS5 connectivity utility for Android Termux"
-license = "MIT"
 repository = "https://github.com/abolfazlkakavand121-a11y/RAVAN"
 
 [dependencies]
