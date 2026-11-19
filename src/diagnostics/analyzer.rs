@@ -66,11 +66,7 @@ pub struct ProtocolAnalysisReport {
     pub summary: String,
 }
 
-pub async fn run(
-    url: Url,
-    ip_family: IpFamily,
-    repeats: u8,
-) -> ProtocolAnalysisReport {
+pub async fn run(url: Url, ip_family: IpFamily, repeats: u8) -> ProtocolAnalysisReport {
     let target = safe_target(&url);
     let repeats = repeats.clamp(1, MAX_REPEATS);
 
@@ -116,12 +112,8 @@ async fn run_inner(
     let resolved_addresses = match dns::resolve(&host).await {
         Ok(addresses) => addresses,
         Err(error) => {
-            let dns_report = DiagnosticReport::failure(
-                "DNS",
-                &host,
-                dns_started.elapsed().as_millis(),
-                &error,
-            );
+            let dns_report =
+                DiagnosticReport::failure("DNS", &host, dns_started.elapsed().as_millis(), &error);
             return Ok(ProtocolAnalysisReport {
                 check: "PROTOCOL_ANALYSIS".to_owned(),
                 target,
@@ -130,8 +122,7 @@ async fn run_inner(
                 repeats,
                 dns: dns_report,
                 addresses: Vec::new(),
-                summary: "DNS resolution failed; no address-level tests were attempted."
-                    .to_owned(),
+                summary: "DNS resolution failed; no address-level tests were attempted.".to_owned(),
             });
         }
     };
@@ -198,7 +189,7 @@ async fn run_inner(
         .sum::<usize>();
     let successful_attempts = address_reports
         .iter()
-        .map(|address| address.successful_attempts as usize)
+        .map(|address| usize::from(address.successful_attempts))
         .sum::<usize>();
     let successful_addresses = address_reports
         .iter()
@@ -343,7 +334,10 @@ mod tests {
         assert_eq!(value["ip_family"], "ipv4");
         assert_eq!(value["repeats"], 2);
         assert_eq!(value["addresses"][0]["address"], "192.0.2.10");
-        assert_eq!(value["addresses"][0]["attempts"][0]["stages"][0]["check"], "TCP");
-        assert_eq!(value["success"], true);
+        assert_eq!(
+            value["addresses"][0]["attempts"][0]["stages"][0]["check"],
+            "TCP"
+        );
+        assert!(value["success"].as_bool().unwrap());
     }
 }
