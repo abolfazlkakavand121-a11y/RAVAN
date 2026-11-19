@@ -31,10 +31,20 @@ TLS diagnostics validate certificate chains and hostnames using public roots. RA
 
 A successful cross-build does not prove that the binary runs on Termux, and neither a build nor a diagnostic proves filtering bypass. Actual Termux device testing is a release gate.
 
+## Build and validation
+
+- Android ARM64 cross-build: `aarch64-linux-android`
+- Android NDK: `30.0.16248370` (r30 LTS), API 21 baseline
+- Rust dependency versions are pinned in `Cargo.lock`
+- GitHub Actions uploads the Android ARM64 binary, archive, and SHA-256 checksum as a 30-day workflow artifact
+
+A successful Android cross-build is not the same as a runtime test on a physical Termux device.
+
 ## Technical specification and tests
 
 - [Technical specification](docs/SPECIFICATION-v0.1.0.md)
 - [Test plan and current coverage](docs/TESTING-v0.1.0.md)
+- [Android ARM64 build instructions and validation status](docs/ANDROID-BUILD.md)
 
 ## Security
 
