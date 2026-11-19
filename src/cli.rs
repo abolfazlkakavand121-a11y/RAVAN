@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 #[command(
     name = "ravan",
     version,
-    about = "Local network diagnostics and SOCKS5 proxy"
+    about = "Local network diagnostics with SOCKS5 and HTTP proxy support"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -18,6 +18,8 @@ pub enum Commands {
     Doctor,
     /// Run the local SOCKS5 TCP proxy in the foreground.
     Proxy(ProxyArgs),
+    /// Run the local HTTP proxy (HTTP forwarding and HTTPS CONNECT).
+    HttpProxy(ProxyArgs),
     /// Run a staged DNS, TCP, TLS, and HTTP protocol analysis.
     Analyze {
         url: String,
