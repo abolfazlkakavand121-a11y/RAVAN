@@ -10,7 +10,7 @@ pub(crate) fn parse_host_port(target: &str) -> Result<(String, u16)> {
     let parsed = Url::parse(&format!("tcp://{target}"))
         .context("target must be host:port; bracket IPv6 literals")?;
     anyhow::ensure!(parsed.username().is_empty() && parsed.password().is_none(), "credentials are not allowed in a diagnostic target");
-    anyhow::ensure!(parsed.path() == "/" && parsed.query().is_none() && parsed.fragment().is_none(), "target must contain only host and port");
+    anyhow::ensure!((parsed.path().is_empty() || parsed.path() == "/") && parsed.query().is_none() && parsed.fragment().is_none(), "target must contain only host and port");
     let host = parsed.host_str().context("target has no hostname")?.to_owned();
     let port = parsed.port().context("target must include a port")?;
     Ok((host, port))
