@@ -1,3 +1,4 @@
+mod http;
 mod socks5;
 
 use crate::config::{Config, ProxyConfig};
@@ -67,6 +68,48 @@ pub async fn run(address: SocketAddr, config: ProxyConfig) -> Result<()> {
     }
 
     // Close the listening socket before draining active sessions.
+    drop(listener);
+    shutdown_tasks(&mut tasks, SHUTDOWN_GRACE_PERIOD).await;
+    Ok(())
+}
+
+/// Run the loopback-only HTTP proxy listener.
+pub async fn run_http(address: SocketAddr, config: ProxyConfig) -> Result<()> {
+    Config { proxy: config.clone() }.validate()?;
+    anyhow::ensure!(address.ip().is_loopback(), "RAVAN refuses to listen on a non-loopback HTTP proxy address");
+    anyhow::ensure!(address.port() != 0, "port 0 is not supported for the HTTP proxy CLI listener");
+    let listener = TcpListener::bind(address).await.with_context(|| format!("bind HTTP proxy listener at {address}"))?;
+    let actual = listener.local_addr()?;
+    let semaphore = Arc::new(Semaphore::new(config.max_connections));
+    let mut tasks = JoinSet::new();
+    let mut ctrl_c = Box::pin(tokio::signal::ctrl_c());
+    println!("RAVAN HTTP proxy listening on {actual}");
+    println!("HTTP forwarding and HTTPS CONNECT; loopback only; press Ctrl+C to stop.");
+    loop {
+        tokio::select! {
+            signal = &mut ctrl_c => {
+                signal.context("wait for Ctrl+C")?;
+                println!("Stopping RAVAN HTTP proxy; allowing active connections up to {} second(s) to finish...", SHUTDOWN_GRACE_PERIOD.as_secs());
+                break;
+            }
+            accepted = listener.accept() => {
+                let (stream, peer) = accepted.context("accept HTTP proxy client")?;
+                if let Some(permit) = acquire_connection_slot(&semaphore) {
+                    let cfg = config.clone();
+                    tasks.spawn(async move {
+                        let _permit = permit;
+                        if let Err(error) = http::handle_client(stream, cfg).await {
+                            tracing::debug!("HTTP proxy client session ended: {error:#}");
+                        }
+                    });
+                } else {
+                    tracing::warn!("HTTP proxy connection limit reached; rejecting client {peer}");
+                    drop(stream);
+                }
+            }
+            Some(_) = tasks.join_next(), if !tasks.is_empty() => {}
+        }
+    }
     drop(listener);
     shutdown_tasks(&mut tasks, SHUTDOWN_GRACE_PERIOD).await;
     Ok(())
