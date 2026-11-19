@@ -55,3 +55,27 @@ pub fn emit(report: &DiagnosticReport, json: bool) {
         println!("Error: {error}");
     }
 }
+
+pub fn emit_analysis(report: &crate::diagnostics::analyzer::ProtocolAnalysisReport, json: bool) {
+    if json {
+        match serde_json::to_string_pretty(report) {
+            Ok(output) => println!("{output}"),
+            Err(error) => eprintln!("Could not serialize analysis report: {error}"),
+        }
+        return;
+    }
+
+    let state = if report.success { "SUCCESS" } else { "INCOMPLETE" };
+    println!("[{state}] {} — {}", report.check, report.target);
+    for stage in &report.stages {
+        let stage_state = if stage.success { "PASS" } else { "FAIL" };
+        println!("  [{stage_state}] {} — {} ms", stage.check, stage.elapsed_ms);
+        if let Some(error) = &stage.error {
+            println!("    Error: {error}");
+        }
+        if !stage.details.is_null() {
+            println!("    Details: {}", stage.details);
+        }
+    }
+    println!("Summary: {}", report.summary);
+}
