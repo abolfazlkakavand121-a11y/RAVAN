@@ -56,9 +56,14 @@ async fn main() -> Result<()> {
             };
             proxy::run(address, cfg.proxy).await?;
         }
-        Commands::Analyze { url, json } => {
+        Commands::Analyze {
+            url,
+            ip_family,
+            repeats,
+            json,
+        } => {
             let parsed = url::Url::parse(&url).context("invalid analysis URL")?;
-            let result = diagnostics::analyzer::run(parsed).await;
+            let result = diagnostics::analyzer::run(parsed, ip_family, repeats).await;
             report::emit_analysis(&result, json);
             if !result.success {
                 anyhow::bail!("protocol analysis did not complete successfully");
