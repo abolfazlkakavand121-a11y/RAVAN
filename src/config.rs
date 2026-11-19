@@ -7,7 +7,7 @@ use std::{
     path::PathBuf,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
     pub proxy: ProxyConfig,
@@ -20,10 +20,6 @@ pub struct ProxyConfig {
     pub handshake_timeout_secs: u64,
     pub connect_timeout_secs: u64,
     pub max_connections: usize,
-}
-
-impl Default for Config {
-    fn default() -> Self { Self { proxy: ProxyConfig::default() } }
 }
 
 impl Default for ProxyConfig {

@@ -38,6 +38,9 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
                         if !matches!(next.scheme(), "http" | "https") {
                             return DiagnosticReport::failure("HTTP", &current_target, started.elapsed().as_millis(), "redirect used an unsupported URL scheme");
                         }
+                        if !next.username().is_empty() || next.password().is_some() {
+                            return DiagnosticReport::failure("HTTP", &current_target, started.elapsed().as_millis(), "redirect URL credentials are not allowed");
+                        }
                         if url.scheme() == "https" && next.scheme() != "https" {
                             return DiagnosticReport::failure("HTTP", &current_target, started.elapsed().as_millis(), "refused HTTPS-to-HTTP redirect downgrade");
                         }

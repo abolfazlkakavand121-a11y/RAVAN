@@ -94,22 +94,25 @@ async fn negotiate(client: &mut TcpStream) -> Result<(String, u16)> {
 }
 
 async fn connect_destination(host: &str, port: u16, timeout_secs: u64) -> std::result::Result<TcpStream, u8> {
-    let addresses: Vec<SocketAddr> = match lookup_host((host, port)).await {
-        Ok(addresses) => addresses.collect(),
-        Err(_) => return Err(0x04),
-    };
-    if addresses.is_empty() { return Err(0x04); }
+    timeout(Duration::from_secs(timeout_secs), async {
+        let addresses: Vec<SocketAddr> = match lookup_host((host, port)).await {
+            Ok(addresses) => addresses.collect(),
+            Err(_) => return Err(0x04),
+        };
+        if addresses.is_empty() { return Err(0x04); }
 
-    let mut last_reply = 0x05;
-    for address in addresses {
-        match timeout(Duration::from_secs(timeout_secs), TcpStream::connect(address)).await {
-            Ok(Ok(stream)) => return Ok(stream),
-            Ok(Err(error)) if error.kind() == ErrorKind::ConnectionRefused => last_reply = 0x05,
-            Ok(Err(_)) => last_reply = 0x01,
-            Err(_) => last_reply = 0x06,
+        let mut last_reply = 0x05;
+        for address in addresses {
+            match TcpStream::connect(address).await {
+                Ok(stream) => return Ok(stream),
+                Err(error) if error.kind() == ErrorKind::ConnectionRefused => last_reply = 0x05,
+                Err(_) => last_reply = 0x01,
+            }
         }
-    }
-    Err(last_reply)
+        Err(last_reply)
+    })
+    .await
+    .unwrap_or(Err(0x06))
 }
 
 async fn send_reply(client: &mut TcpStream, code: u8) -> Result<()> {
