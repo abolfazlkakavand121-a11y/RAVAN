@@ -91,7 +91,11 @@ pub fn emit_analysis(report: &crate::diagnostics::analyzer::ProtocolAnalysisRepo
     }
 
     for address in &report.addresses {
-        let state = if address.success { "REACHABLE" } else { "FAILED" };
+        let state = if address.success {
+            "REACHABLE"
+        } else {
+            "FAILED"
+        };
         println!(
             "  [{state}] {} {} — {}/{} attempts successful",
             address.family,
