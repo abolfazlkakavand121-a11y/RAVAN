@@ -23,6 +23,9 @@ pub enum Commands {
         url: String,
         #[arg(long)]
         json: bool,
+        /// Select address family: both, ipv4, or ipv6.
+        #[arg(long, value_parser = ["both", "ipv4", "ipv6"], default_value = "both")]
+        ip_family: String,
     },
     /// Run an explicit network diagnostic.
     Diag(DiagArgs),
