@@ -18,6 +18,8 @@ pub enum Commands {
     Doctor,
     /// Run the local SOCKS5 TCP proxy in the foreground.
     Proxy(ProxyArgs),
+    /// Run a staged DNS, TCP, TLS, and HTTP protocol analysis.
+    Analyze { url: String, #[arg(long)] json: bool },
     /// Run an explicit network diagnostic.
     Diag(DiagArgs),
     /// Manage the local RAVAN configuration.
