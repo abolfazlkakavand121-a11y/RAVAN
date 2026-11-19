@@ -62,7 +62,11 @@ async fn main() -> Result<()> {
             ip_family,
         } => {
             let parsed = url::Url::parse(&url).context("invalid analysis URL")?;
-            let result = diagnostics::analyzer::run_with_family(parsed, &ip_family).await;
+            let result = if ip_family == "both" {
+                diagnostics::analyzer::run(parsed).await
+            } else {
+                diagnostics::analyzer::run_with_family(parsed, &ip_family).await
+            };
             report::emit_analysis(&result, json);
             if !result.success {
                 anyhow::bail!("protocol analysis did not complete successfully");
