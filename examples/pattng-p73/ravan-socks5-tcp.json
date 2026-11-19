@@ -46,13 +46,27 @@
     "rules": [
       {
         "type": "field",
+        "inboundTag": [
+          "ravan-tun"
+        ],
         "port": "53",
         "outboundTag": "direct"
       },
       {
         "type": "field",
+        "inboundTag": [
+          "ravan-tun"
+        ],
         "network": "udp",
         "outboundTag": "block"
+      },
+      {
+        "type": "field",
+        "inboundTag": [
+          "ravan-tun"
+        ],
+        "network": "tcp",
+        "outboundTag": "ravan-socks"
       }
     ]
   }
