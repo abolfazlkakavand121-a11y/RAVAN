@@ -90,7 +90,7 @@ async fn run_inner(url: Url, target: String, family: &str) -> Result<ProtocolAna
             }
         }
 
-        let http_report = http::run_pinned(url.clone(), ip).await;
+        let http_report = http::run_pinned(url.clone(), ip, family).await;
         let http_ok = http_report.success;
         stages.push(http_report);
         if http_ok {
