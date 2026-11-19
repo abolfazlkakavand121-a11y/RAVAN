@@ -11,13 +11,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: ravan-ci-main
+  group: ravan-ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   test:
     name: Format, lint, and test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -27,9 +31,7 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Format Rust sources
-        run: cargo fmt --all
-
+      # Do not rewrite the checkout before checking formatting.
       - name: Verify formatting
         run: cargo fmt --all -- --check
 
