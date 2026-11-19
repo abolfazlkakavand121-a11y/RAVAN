@@ -3,7 +3,7 @@ use crate::report::DiagnosticReport;
 use anyhow::{Context, Result};
 use rustls::{pki_types::ServerName, ClientConfig, RootCertStore};
 use serde_json::json;
-use std::{net::IpAddr, sync::Arc, time::Duration};
+use std::{net::{IpAddr, SocketAddr}, sync::Arc, time::Duration};
 use tokio::{net::TcpStream, time::timeout};
 use tokio_rustls::{client::TlsStream, TlsConnector};
 
@@ -24,6 +24,20 @@ pub(crate) fn server_name(host: &str) -> Result<ServerName<'static>> {
         Ok(ip) => Ok(ServerName::IpAddress(ip.into())),
         Err(_) => ServerName::try_from(host.to_owned()).context("invalid TLS server name"),
     }
+}
+
+pub(crate) async fn connect_tls_pinned(host: &str, address: SocketAddr) -> Result<TlsStream<TcpStream>> {
+    let stream = timeout(Duration::from_secs(10), TcpStream::connect(address))
+        .await
+        .context("TCP connection timed out")??;
+    let tls = timeout(
+        Duration::from_secs(10),
+        connector()?.connect(server_name(host)?, stream),
+    )
+    .await
+    .context("TLS handshake timed out")?
+    .context("TLS handshake failed")?;
+    Ok(tls)
 }
 
 pub(crate) async fn connect_tls(host: &str, port: u16) -> Result<TlsStream<TcpStream>> {
