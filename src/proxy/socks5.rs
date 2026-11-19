@@ -411,8 +411,7 @@ mod tests {
             destination.shutdown().await.unwrap();
         });
 
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
 
@@ -511,5 +510,4 @@ mod tests {
             .unwrap();
         assert!(result.is_err());
     }
-
 }
