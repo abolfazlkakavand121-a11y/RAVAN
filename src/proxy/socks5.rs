@@ -216,6 +216,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn parses_domain_connect_request_without_external_network_access() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+
+        let client_task = tokio::spawn(async move {
+            let mut client = TcpStream::connect(address).await.unwrap();
+            let mut request = vec![SOCKS_VERSION, 1, 0, SOCKS_VERSION, 0x01, 0, 0x03, 11];
+            request.extend_from_slice(b"example.com");
+            request.extend_from_slice(&443_u16.to_be_bytes());
+            client.write_all(&request).await.unwrap();
+
+            let mut selection = [0_u8; 2];
+            client.read_exact(&mut selection).await.unwrap();
+            selection
+        });
+
+        let (mut server, _) = listener.accept().await.unwrap();
+        let parsed = negotiate(&mut server).await.unwrap();
+
+        assert_eq!(parsed, ("example.com".to_owned(), 443));
+        assert_eq!(client_task.await.unwrap(), [SOCKS_VERSION, 0x00]);
+    }
+
+    #[tokio::test]
     async fn connects_to_ipv4_and_relays_data_in_both_directions() {
         let destination_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let destination_address = destination_listener.local_addr().unwrap();
