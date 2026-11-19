@@ -60,7 +60,7 @@ pub(crate) async fn connect_tls(host: &str, port: u16) -> Result<TlsStream<TcpSt
     .context("TLS handshake failed")?;
     Ok(tls)
 }
- 
+
 pub async fn run_pinned(target: &str, host: &str, address: SocketAddr) -> DiagnosticReport {
     let started = std::time::Instant::now();
     match connect_tls_pinned(host, address).await {
