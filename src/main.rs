@@ -36,12 +36,24 @@ async fn main() -> Result<()> {
             println!(
                 "Configuration status: {}",
                 if path.exists() {
-                    "found"
+                    "loaded from file and validated"
                 } else {
-                    "using safe defaults"
+                    "file not found; using safe defaults"
                 }
             );
             println!("SOCKS5 listen address: {}", cfg.proxy.listen_addr);
+            println!(
+                "SOCKS5 handshake timeout: {} seconds",
+                cfg.proxy.handshake_timeout_secs
+            );
+            println!(
+                "Outbound connect timeout: {} seconds",
+                cfg.proxy.connect_timeout_secs
+            );
+            println!(
+                "Maximum concurrent connections: {}",
+                cfg.proxy.max_connections
+            );
             println!("Network tests: not run; use an explicit diagnostic command.");
         }
         Commands::Proxy(args) => {
