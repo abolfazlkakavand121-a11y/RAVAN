@@ -36,7 +36,9 @@ async fn run_inner(url: Url, target: String) -> Result<ProtocolAnalysisReport> {
     }
 
     let host = normalized_host(&url).context("URL has no hostname")?;
-    let port = url.port_or_known_default().context("URL has no known port")?;
+    let port = url
+        .port_or_known_default()
+        .context("URL has no known port")?;
     let tcp_target = if host.contains(':') {
         format!("[{host}]:{port}")
     } else {
@@ -48,14 +50,22 @@ async fn run_inner(url: Url, target: String) -> Result<ProtocolAnalysisReport> {
     let dns_report = dns::run(&host).await;
     if !dns_report.success {
         stages.push(dns_report);
-        return Ok(failed(target, stages, "DNS resolution failed; TCP, TLS, and HTTP stages were not attempted."));
+        return Ok(failed(
+            target,
+            stages,
+            "DNS resolution failed; TCP, TLS, and HTTP stages were not attempted.",
+        ));
     }
     stages.push(dns_report);
 
     let tcp_report = tcp::run(&tcp_target).await;
     if !tcp_report.success {
         stages.push(tcp_report);
-        return Ok(failed(target, stages, "DNS succeeded, but TCP connection failed; higher protocol stages were not attempted."));
+        return Ok(failed(
+            target,
+            stages,
+            "DNS succeeded, but TCP connection failed; higher protocol stages were not attempted.",
+        ));
     }
     stages.push(tcp_report);
 
@@ -63,7 +73,11 @@ async fn run_inner(url: Url, target: String) -> Result<ProtocolAnalysisReport> {
         let tls_report = tls::run(&tcp_target).await;
         if !tls_report.success {
             stages.push(tls_report);
-            return Ok(failed(target, stages, "DNS and TCP succeeded, but TLS negotiation or certificate validation failed."));
+            return Ok(failed(
+                target,
+                stages,
+                "DNS and TCP succeeded, but TLS negotiation or certificate validation failed.",
+            ));
         }
         stages.push(tls_report);
     }
@@ -71,7 +85,11 @@ async fn run_inner(url: Url, target: String) -> Result<ProtocolAnalysisReport> {
     let http_report = http::run(url).await;
     if !http_report.success {
         stages.push(http_report);
-        return Ok(failed(target, stages, "DNS and transport setup succeeded, but the HTTP exchange failed."));
+        return Ok(failed(
+            target,
+            stages,
+            "DNS and transport setup succeeded, but the HTTP exchange failed.",
+        ));
     }
     stages.push(http_report);
 
@@ -110,7 +128,12 @@ mod tests {
     fn analysis_report_serializes_stage_details() {
         let report = failed(
             "https://example.com/".to_owned(),
-            vec![DiagnosticReport::failure("DNS", "example.com", 12, "test failure")],
+            vec![DiagnosticReport::failure(
+                "DNS",
+                "example.com",
+                12,
+                "test failure",
+            )],
             "DNS failed",
         );
         let value = serde_json::to_value(report).unwrap();
