@@ -2,7 +2,10 @@ use super::{normalized_host, safe_target, tls};
 use crate::report::DiagnosticReport;
 use anyhow::{bail, Context, Result};
 use serde_json::json;
-use std::{net::{IpAddr, SocketAddr}, time::{Duration, Instant}};
+use std::{
+    net::{IpAddr, SocketAddr},
+    time::{Duration, Instant},
+};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt},
     net::TcpStream,
@@ -145,9 +148,11 @@ async fn request_once(url: &Url, pinned_ip: Option<IpAddr>) -> Result<(u16, Opti
         .port_or_known_default()
         .context("URL has no known port")?;
     let stream = match pinned_ip {
-        Some(ip) => TcpStream::connect(SocketAddr::new(ip, port)).await
+        Some(ip) => TcpStream::connect(SocketAddr::new(ip, port))
+            .await
             .with_context(|| format!("connect to pinned endpoint {ip}:{port}"))?,
-        None => TcpStream::connect((host.as_str(), port)).await
+        None => TcpStream::connect((host.as_str(), port))
+            .await
             .with_context(|| format!("connect to {host}:{port}"))?,
     };
 
