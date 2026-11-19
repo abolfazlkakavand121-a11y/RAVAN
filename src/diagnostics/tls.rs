@@ -3,7 +3,11 @@ use crate::report::DiagnosticReport;
 use anyhow::{Context, Result};
 use rustls::{pki_types::ServerName, ClientConfig, RootCertStore};
 use serde_json::json;
-use std::{net::IpAddr, sync::Arc, time::Duration};
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::{net::TcpStream, time::timeout};
 use tokio_rustls::{client::TlsStream, TlsConnector};
 
@@ -30,6 +34,21 @@ pub(crate) async fn connect_tls(host: &str, port: u16) -> Result<TlsStream<TcpSt
     let stream = timeout(Duration::from_secs(10), TcpStream::connect((host, port)))
         .await
         .context("TCP connection timed out")??;
+    connect_tls_stream(host, stream).await
+}
+
+/// Performs TLS over a socket connected to an explicit IP while validating the original host.
+pub(crate) async fn connect_tls_to(
+    host: &str,
+    address: SocketAddr,
+) -> Result<TlsStream<TcpStream>> {
+    let stream = timeout(Duration::from_secs(10), TcpStream::connect(address))
+        .await
+        .context("TCP connection to pinned IP timed out")??;
+    connect_tls_stream(host, stream).await
+}
+
+async fn connect_tls_stream(host: &str, stream: TcpStream) -> Result<TlsStream<TcpStream>> {
     let tls = timeout(
         Duration::from_secs(10),
         connector()?.connect(server_name(host)?, stream),
@@ -41,7 +60,7 @@ pub(crate) async fn connect_tls(host: &str, port: u16) -> Result<TlsStream<TcpSt
 }
 
 pub async fn run(target: &str) -> DiagnosticReport {
-    let started = std::time::Instant::now();
+    let started = Instant::now();
     let (host, port) = match parse_host_port(target) {
         Ok(value) => value,
         Err(error) => {
@@ -50,32 +69,65 @@ pub async fn run(target: &str) -> DiagnosticReport {
     };
 
     match connect_tls(&host, port).await {
-        Ok(stream) => {
-            let connection = stream.get_ref().1;
-            let version = connection
-                .protocol_version()
-                .map(|value| format!("{value:?}"))
-                .unwrap_or_else(|| "unknown".to_owned());
-            let cipher = connection
-                .negotiated_cipher_suite()
-                .map(|value| format!("{:?}", value.suite()))
-                .unwrap_or_else(|| "unknown".to_owned());
-            DiagnosticReport::success(
-                "TLS",
-                target,
-                started.elapsed().as_millis(),
-                json!({
-                    "handshake": "completed",
-                    "tls_version": version,
-                    "cipher_suite": cipher,
-                    "certificate_validation": "enabled"
-                }),
-            )
-        }
+        Ok(stream) => report_tls_success(
+            target,
+            started.elapsed().as_millis(),
+            &stream,
+            None,
+        ),
         Err(error) => {
             DiagnosticReport::failure("TLS", target, started.elapsed().as_millis(), error)
         }
     }
+}
+
+/// Performs a TLS handshake to a pinned IP but keeps the URL hostname for SNI and
+/// certificate hostname verification.
+pub async fn run_pinned(host: &str, address: SocketAddr) -> DiagnosticReport {
+    let started = Instant::now();
+    let target = format!("{host} via {address}");
+
+    match connect_tls_to(host, address).await {
+        Ok(stream) => report_tls_success(
+            &target,
+            started.elapsed().as_millis(),
+            &stream,
+            Some(address),
+        ),
+        Err(error) => {
+            DiagnosticReport::failure("TLS", target, started.elapsed().as_millis(), error)
+        }
+    }
+}
+
+fn report_tls_success(
+    target: &str,
+    elapsed_ms: u128,
+    stream: &TlsStream<TcpStream>,
+    pinned_address: Option<SocketAddr>,
+) -> DiagnosticReport {
+    let connection = stream.get_ref().1;
+    let version = connection
+        .protocol_version()
+        .map(|value| format!("{value:?}"))
+        .unwrap_or_else(|| "unknown".to_owned());
+    let cipher = connection
+        .negotiated_cipher_suite()
+        .map(|value| format!("{:?}", value.suite()))
+        .unwrap_or_else(|| "unknown".to_owned());
+
+    let mut details = json!({
+        "handshake": "completed",
+        "tls_version": version,
+        "cipher_suite": cipher,
+        "certificate_validation": "enabled"
+    });
+    if let Some(address) = pinned_address {
+        details["pinned_ip"] = json!(address.ip().to_string());
+        details["ip_family"] = json!(if address.is_ipv4() { "ipv4" } else { "ipv6" });
+    }
+
+    DiagnosticReport::success("TLS", target, elapsed_ms, details)
 }
 
 #[cfg(test)]
