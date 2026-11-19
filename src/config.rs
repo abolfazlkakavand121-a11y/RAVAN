@@ -58,6 +58,10 @@ impl Config {
             "proxy.listen_addr must be a loopback address"
         );
         anyhow::ensure!(
+            address.port() != 0,
+            "proxy.listen_addr must use a non-zero port"
+        );
+        anyhow::ensure!(
             (1..=30).contains(&self.proxy.handshake_timeout_secs),
             "handshake_timeout_secs must be between 1 and 30"
         );
@@ -129,6 +133,13 @@ mod tests {
     fn public_listener_is_rejected() {
         let mut config = Config::default();
         config.proxy.listen_addr = "0.0.0.0:2080".to_owned();
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn zero_port_is_rejected() {
+        let mut config = Config::default();
+        config.proxy.listen_addr = "127.0.0.1:0".to_owned();
         assert!(config.validate().is_err());
     }
 }

@@ -85,7 +85,7 @@ The proxy implements SOCKS Version 5 for TCP CONNECT only.
 - Malformed requests, oversized protocol fields, timeouts, and connection failures must not cause panics.
 - The listener must bind only to an IP address that is actually loopback (127.0.0.1 or ::1). It must never fall back to 0.0.0.0, ::, or a LAN address.
 - Initial defaults: 5-second SOCKS handshake timeout, 10-second outbound TCP connect timeout, and a bounded concurrent-connection limit (initial default 128). These values must be configurable only within safe bounds.
-- Ctrl+C stops accepting new clients and initiates bounded shutdown; shutdown is covered by tests.
+- Ctrl+C stops accepting new clients, closes the listening socket, allows active sessions up to two seconds to finish, then cancels remaining sessions; shutdown behavior is covered by tests.
 
 The proxy is a byte-forwarding TCP relay. It does not improve reachability, change the device's public IP, or provide a remote exit.
 
@@ -114,7 +114,7 @@ The proxy is a byte-forwarding TCP relay. It does not improve reachability, chan
 - Accept only HTTP and HTTPS URLs.
 - Use a HEAD request for the first milestone; report the HTTP status and timing.
 - A valid HTTP error status, such as 403 or 404, proves that an HTTP server responded; it is not the same as a DNS, TCP, or TLS failure.
-- Bound redirects and request duration.
+- Follow at most three redirects and enforce a 15-second overall deadline across the entire redirect chain.
 - Do not download or retain response bodies.
 - Never print URL query strings or user-info credentials in normal logs.
 

@@ -4,11 +4,13 @@ RAVAN's Android command-line binary is cross-compiled for Rust target `aarch64-l
 
 ## Build configuration
 
+- Rust toolchain: `1.100.0` (pinned in both GitHub Actions workflows)
 - Rust target: `aarch64-linux-android`
 - Android NDK: `30.0.16248370` (NDK r30 LTS)
 - Native API level: 21
 - NDK compiler: `aarch64-linux-android21-clang`
 - Rust dependency resolution: `Cargo.lock` with `--locked`
+- GitHub Actions are pinned to reviewed full commit SHAs; Dependabot checks for updates weekly
 
 The API 21 toolchain choice is the 64-bit Android baseline. The project still needs to be tested on real Termux installations; a successful cross-build and ELF inspection do not prove that every Android device or Termux environment will execute it.
 
@@ -27,12 +29,13 @@ Artifacts are available from the matching GitHub Actions run for 30 days. They a
 On a Linux build host with the pinned Android NDK installed:
 
 ```sh
-rustup target add aarch64-linux-android
+rustup toolchain install 1.100.0 --profile minimal
+rustup target add --toolchain 1.100.0 aarch64-linux-android
 export PATH="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
 export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=aarch64-linux-android21-clang
 export CC_aarch64_linux_android=aarch64-linux-android21-clang
 export AR_aarch64_linux_android=llvm-ar
-cargo build --locked --release --target aarch64-linux-android
+cargo +1.100.0 build --locked --release --target aarch64-linux-android
 ```
 
 ## Device validation still required

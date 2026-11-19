@@ -33,9 +33,20 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
         );
     }
 
-    for redirects in 0..=MAX_REDIRECTS {
+    let mut redirects_followed = 0;
+    loop {
         let current_target = safe_target(&url);
-        match timeout(Duration::from_secs(15), request_once(&url)).await {
+        let remaining = Duration::from_secs(15).saturating_sub(started.elapsed());
+        if remaining.is_zero() {
+            return DiagnosticReport::failure(
+                "HTTP",
+                &current_target,
+                started.elapsed().as_millis(),
+                "request timed out after 15 seconds",
+            );
+        }
+
+        match timeout(remaining, request_once(&url)).await {
             Err(_) => {
                 return DiagnosticReport::failure(
                     "HTTP",
@@ -53,8 +64,17 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
                 )
             }
             Ok(Ok((status, location))) => {
-                if (300..400).contains(&status) && redirects < MAX_REDIRECTS {
+                if (300..400).contains(&status) {
                     if let Some(location) = location {
+                        if redirects_followed >= MAX_REDIRECTS {
+                            return DiagnosticReport::failure(
+                                "HTTP",
+                                &current_target,
+                                started.elapsed().as_millis(),
+                                "redirect limit exceeded",
+                            );
+                        }
+
                         let next = match url.join(&location) {
                             Ok(next) => next,
                             Err(error) => {
@@ -91,9 +111,11 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
                             );
                         }
                         url = next;
+                        redirects_followed += 1;
                         continue;
                     }
                 }
+
                 return DiagnosticReport::success(
                     "HTTP",
                     &current_target,
@@ -101,19 +123,12 @@ pub async fn run(mut url: Url) -> DiagnosticReport {
                     json!({
                         "status": status,
                         "method": "HEAD",
-                        "redirects_followed": redirects
+                        "redirects_followed": redirects_followed
                     }),
                 );
             }
         }
     }
-
-    DiagnosticReport::failure(
-        "HTTP",
-        &original_target,
-        started.elapsed().as_millis(),
-        "redirect limit exceeded",
-    )
 }
 
 async fn request_once(url: &Url) -> Result<(u16, Option<String>)> {
@@ -183,8 +198,10 @@ where
         if response.len() >= MAX_HEADER_BYTES {
             bail!("HTTP response headers exceeded 16 KiB");
         }
+        let remaining = MAX_HEADER_BYTES.saturating_sub(response.len());
+        let read_len = remaining.min(chunk.len());
         let count = stream
-            .read(&mut chunk)
+            .read(&mut chunk[..read_len])
             .await
             .context("read HTTP response headers")?;
         if count == 0 {
@@ -193,8 +210,11 @@ where
         response.extend_from_slice(&chunk[..count]);
     };
 
-    let headers = std::str::from_utf8(&response[..header_end])
-        .context("HTTP response headers are not valid UTF-8")?;
+    parse_response_headers(&response[..header_end])
+}
+
+fn parse_response_headers(bytes: &[u8]) -> Result<(u16, Option<String>)> {
+    let headers = String::from_utf8_lossy(bytes);
     let mut lines = headers.lines();
     let status_line = lines.next().context("HTTP response has no status line")?;
     let status = status_line
@@ -212,4 +232,30 @@ where
         }
     });
     Ok((status, location))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_status_and_location_headers() {
+        let response = b"HTTP/1.1 302 Found\r\nLocation: /next\r\nContent-Length: 0\r\n\r\n";
+        assert_eq!(
+            parse_response_headers(response).unwrap(),
+            (302, Some("/next".to_owned()))
+        );
+    }
+
+    #[test]
+    fn tolerates_non_utf8_bytes_in_unrelated_headers() {
+        let response = b"HTTP/1.1 204 No Content\r\nX-Opaque: \xff\r\n\r\n";
+        assert_eq!(parse_response_headers(response).unwrap().0, 204);
+    }
+
+    #[test]
+    fn rejects_malformed_status_line() {
+        let response = b"NOT-HTTP\r\n\r\n";
+        assert!(parse_response_headers(response).is_err());
+    }
 }

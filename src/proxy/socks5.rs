@@ -378,4 +378,137 @@ mod tests {
         assert_eq!(reply[1], 0x08);
         assert!(proxy_task.await.unwrap().is_err());
     }
+
+    async fn read_reply(client: &mut TcpStream) -> (u8, u8) {
+        let mut header = [0_u8; 4];
+        client.read_exact(&mut header).await.unwrap();
+        let tail_len = match header[3] {
+            0x01 => 6,
+            0x04 => 18,
+            0x03 => {
+                let mut length = [0_u8; 1];
+                client.read_exact(&mut length).await.unwrap();
+                let mut tail = vec![0_u8; length[0] as usize + 2];
+                client.read_exact(&mut tail).await.unwrap();
+                return (header[1], header[3]);
+            }
+            _ => panic!("unexpected SOCKS5 address type in reply: {}", header[3]),
+        };
+        let mut tail = vec![0_u8; tail_len];
+        client.read_exact(&mut tail).await.unwrap();
+        (header[1], header[3])
+    }
+
+    #[tokio::test]
+    async fn connects_to_localhost_domain_and_relays_data() {
+        let destination_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let destination_address = destination_listener.local_addr().unwrap();
+        let destination_task = tokio::spawn(async move {
+            let (mut destination, _) = destination_listener.accept().await.unwrap();
+            let mut request = [0_u8; 4];
+            destination.read_exact(&mut request).await.unwrap();
+            assert_eq!(&request, b"ping");
+            destination.write_all(b"pong").await.unwrap();
+            destination.shutdown().await.unwrap();
+        });
+
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
+        let mut client = TcpStream::connect(proxy_address).await.unwrap();
+        negotiate_client(&mut client).await;
+
+        let mut request = vec![SOCKS_VERSION, 0x01, 0x00, 0x03, 9];
+        request.extend_from_slice(b"localhost");
+        request.extend_from_slice(&destination_address.port().to_be_bytes());
+        client.write_all(&request).await.unwrap();
+
+        assert_eq!(read_reply(&mut client).await.0, 0x00);
+        client.write_all(b"ping").await.unwrap();
+        let mut response = [0_u8; 4];
+        client.read_exact(&mut response).await.unwrap();
+        assert_eq!(&response, b"pong");
+        client.shutdown().await.unwrap();
+
+        destination_task.await.unwrap();
+        proxy_task.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn connects_to_ipv6_and_relays_data_in_both_directions() {
+        let destination_listener = TcpListener::bind("[::1]:0").await.unwrap();
+        let destination_address = destination_listener.local_addr().unwrap();
+        let destination_task = tokio::spawn(async move {
+            let (mut destination, _) = destination_listener.accept().await.unwrap();
+            let mut request = [0_u8; 4];
+            destination.read_exact(&mut request).await.unwrap();
+            assert_eq!(&request, b"ping");
+            destination.write_all(b"pong").await.unwrap();
+            destination.shutdown().await.unwrap();
+        });
+
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
+        let mut client = TcpStream::connect(proxy_address).await.unwrap();
+        negotiate_client(&mut client).await;
+
+        let mut request = vec![SOCKS_VERSION, 0x01, 0x00, 0x04];
+        let destination_ip = match destination_address.ip() {
+            std::net::IpAddr::V6(ip) => ip,
+            _ => panic!("IPv6 listener returned a non-IPv6 address"),
+        };
+        request.extend_from_slice(&destination_ip.octets());
+        request.extend_from_slice(&destination_address.port().to_be_bytes());
+        client.write_all(&request).await.unwrap();
+
+        let (reply_code, address_type) = read_reply(&mut client).await;
+        assert_eq!(reply_code, 0x00);
+        assert_eq!(address_type, 0x04);
+
+        client.write_all(b"ping").await.unwrap();
+        let mut response = [0_u8; 4];
+        client.read_exact(&mut response).await.unwrap();
+        assert_eq!(&response, b"pong");
+        client.shutdown().await.unwrap();
+
+        destination_task.await.unwrap();
+        proxy_task.await.unwrap().unwrap();
+    }
+
+    #[tokio::test]
+    async fn returns_failure_reply_when_destination_refuses_connection() {
+        let destination_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let destination_address = destination_listener.local_addr().unwrap();
+        drop(destination_listener);
+
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
+        let mut client = TcpStream::connect(proxy_address).await.unwrap();
+        negotiate_client(&mut client).await;
+
+        let mut request = vec![SOCKS_VERSION, 0x01, 0x00, 0x01];
+        let destination_ip = match destination_address.ip() {
+            std::net::IpAddr::V4(ip) => ip,
+            _ => panic!("IPv4 listener returned a non-IPv4 address"),
+        };
+        request.extend_from_slice(&destination_ip.octets());
+        request.extend_from_slice(&destination_address.port().to_be_bytes());
+        client.write_all(&request).await.unwrap();
+
+        let reply = read_ipv4_reply(&mut client).await;
+        assert_ne!(reply[1], 0x00);
+        assert!(proxy_task.await.unwrap().is_err());
+    }
+
+    #[tokio::test]
+    async fn closes_clients_that_do_not_complete_handshake_in_time() {
+        let config = ProxyConfig {
+            handshake_timeout_secs: 1,
+            ..ProxyConfig::default()
+        };
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(config).await;
+        let _client = TcpStream::connect(proxy_address).await.unwrap();
+
+        let result = timeout(Duration::from_secs(2), proxy_task)
+            .await
+            .expect("handshake timeout should close the session")
+            .unwrap();
+        assert!(result.is_err());
+    }
 }
