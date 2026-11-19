@@ -252,8 +252,7 @@ mod tests {
             destination.shutdown().await.unwrap();
         });
 
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
 
@@ -280,8 +279,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_clients_without_no_authentication_support() {
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         client.write_all(&[SOCKS_VERSION, 1, 0x02]).await.unwrap();
 
@@ -293,8 +291,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_unsupported_commands_with_protocol_reply() {
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
         client
@@ -309,8 +306,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_malformed_reserved_field() {
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
         client
@@ -325,8 +321,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_unknown_address_type() {
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
         client
@@ -341,8 +336,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_empty_domain_name() {
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
         client
@@ -357,8 +351,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_non_utf8_domain_name() {
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
         client
@@ -373,8 +366,7 @@ mod tests {
 
     #[tokio::test]
     async fn rejects_destination_port_zero() {
-        let (proxy_address, proxy_task) =
-            spawn_single_client_proxy(ProxyConfig::default()).await;
+        let (proxy_address, proxy_task) = spawn_single_client_proxy(ProxyConfig::default()).await;
         let mut client = TcpStream::connect(proxy_address).await.unwrap();
         negotiate_client(&mut client).await;
         client

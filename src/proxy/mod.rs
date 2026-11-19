@@ -10,9 +10,16 @@ use tokio::{
 };
 
 pub async fn run(address: SocketAddr, config: ProxyConfig) -> Result<()> {
-    anyhow::ensure!(address.ip().is_loopback(), "RAVAN refuses to listen on a non-loopback address");
-    anyhow::ensure!(address.port() != 0, "port 0 is not supported for the CLI listener");
-    let listener = TcpListener::bind(address).await
+    anyhow::ensure!(
+        address.ip().is_loopback(),
+        "RAVAN refuses to listen on a non-loopback address"
+    );
+    anyhow::ensure!(
+        address.port() != 0,
+        "port 0 is not supported for the CLI listener"
+    );
+    let listener = TcpListener::bind(address)
+        .await
         .with_context(|| format!("bind SOCKS5 listener at {address}"))?;
     let actual = listener.local_addr()?;
     let semaphore = Arc::new(Semaphore::new(config.max_connections));

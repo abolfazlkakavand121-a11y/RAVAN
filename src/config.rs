@@ -36,7 +36,9 @@ impl Default for ProxyConfig {
 impl Config {
     pub fn load() -> Result<Self> {
         let path = config_path()?;
-        if !path.exists() { return Ok(Self::default()); }
+        if !path.exists() {
+            return Ok(Self::default());
+        }
         let input = fs::read_to_string(&path)
             .with_context(|| format!("read configuration at {}", path.display()))?;
         let config: Self = toml::from_str(&input)
@@ -46,12 +48,27 @@ impl Config {
     }
 
     pub fn validate(&self) -> Result<()> {
-        let address: std::net::SocketAddr = self.proxy.listen_addr.parse()
+        let address: std::net::SocketAddr = self
+            .proxy
+            .listen_addr
+            .parse()
             .context("proxy.listen_addr must be a valid socket address")?;
-        anyhow::ensure!(address.ip().is_loopback(), "proxy.listen_addr must be a loopback address");
-        anyhow::ensure!((1..=30).contains(&self.proxy.handshake_timeout_secs), "handshake_timeout_secs must be between 1 and 30");
-        anyhow::ensure!((1..=60).contains(&self.proxy.connect_timeout_secs), "connect_timeout_secs must be between 1 and 60");
-        anyhow::ensure!((1..=1024).contains(&self.proxy.max_connections), "max_connections must be between 1 and 1024");
+        anyhow::ensure!(
+            address.ip().is_loopback(),
+            "proxy.listen_addr must be a loopback address"
+        );
+        anyhow::ensure!(
+            (1..=30).contains(&self.proxy.handshake_timeout_secs),
+            "handshake_timeout_secs must be between 1 and 30"
+        );
+        anyhow::ensure!(
+            (1..=60).contains(&self.proxy.connect_timeout_secs),
+            "connect_timeout_secs must be between 1 and 60"
+        );
+        anyhow::ensure!(
+            (1..=1024).contains(&self.proxy.max_connections),
+            "max_connections must be between 1 and 1024"
+        );
         Ok(())
     }
 }
@@ -61,7 +78,10 @@ pub fn config_path() -> Result<PathBuf> {
         return Ok(PathBuf::from(path).join("ravan").join("config.toml"));
     }
     let home = env::var_os("HOME").context("HOME is not set")?;
-    Ok(PathBuf::from(home).join(".config").join("ravan").join("config.toml"))
+    Ok(PathBuf::from(home)
+        .join(".config")
+        .join("ravan")
+        .join("config.toml"))
 }
 
 pub fn initialize() -> Result<()> {
@@ -74,12 +94,16 @@ pub fn initialize() -> Result<()> {
     let mut file = match OpenOptions::new().write(true).create_new(true).open(&path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-            println!("Configuration already exists; left unchanged: {}", path.display());
+            println!(
+                "Configuration already exists; left unchanged: {}",
+                path.display()
+            );
             return Ok(());
         }
         Err(error) => return Err(error).with_context(|| format!("create {}", path.display())),
     };
-    file.write_all(content.as_bytes()).with_context(|| format!("write {}", path.display()))?;
+    file.write_all(content.as_bytes())
+        .with_context(|| format!("write {}", path.display()))?;
     println!("Created configuration: {}", path.display());
     Ok(())
 }

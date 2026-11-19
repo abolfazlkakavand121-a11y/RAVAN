@@ -2,7 +2,11 @@ use clap::{Args, Parser, Subcommand};
 use std::net::SocketAddr;
 
 #[derive(Debug, Parser)]
-#[command(name = "ravan", version, about = "Local network diagnostics and SOCKS5 proxy")]
+#[command(
+    name = "ravan",
+    version,
+    about = "Local network diagnostics and SOCKS5 proxy"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,

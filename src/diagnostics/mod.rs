@@ -9,8 +9,16 @@ use url::Url;
 pub(crate) fn parse_host_port(target: &str) -> Result<(String, u16)> {
     let parsed = Url::parse(&format!("tcp://{target}"))
         .context("target must be host:port; bracket IPv6 literals")?;
-    anyhow::ensure!(parsed.username().is_empty() && parsed.password().is_none(), "credentials are not allowed in a diagnostic target");
-    anyhow::ensure!((parsed.path().is_empty() || parsed.path() == "/") && parsed.query().is_none() && parsed.fragment().is_none(), "target must contain only host and port");
+    anyhow::ensure!(
+        parsed.username().is_empty() && parsed.password().is_none(),
+        "credentials are not allowed in a diagnostic target"
+    );
+    anyhow::ensure!(
+        (parsed.path().is_empty() || parsed.path() == "/")
+            && parsed.query().is_none()
+            && parsed.fragment().is_none(),
+        "target must contain only host and port"
+    );
     let host = normalized_host(&parsed).context("target has no hostname")?;
     let port = parsed.port().context("target must include a port")?;
     Ok((host, port))
@@ -18,13 +26,20 @@ pub(crate) fn parse_host_port(target: &str) -> Result<(String, u16)> {
 
 pub(crate) fn normalized_host(url: &Url) -> Option<String> {
     let host = url.host_str()?;
-    let host = host.strip_prefix('[').and_then(|value| value.strip_suffix(']')).unwrap_or(host);
+    let host = host
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(host);
     Some(host.to_owned())
 }
 
 pub(crate) fn safe_target(url: &Url) -> String {
     let host = normalized_host(url).unwrap_or_else(|| "<invalid-host>".to_owned());
-    let display_host = if host.contains(':') { format!("[{host}]") } else { host };
+    let display_host = if host.contains(':') {
+        format!("[{host}]")
+    } else {
+        host
+    };
     match url.port() {
         Some(port) => format!("{}://{}:{}{}", url.scheme(), display_host, port, url.path()),
         None => format!("{}://{}{}", url.scheme(), display_host, url.path()),
@@ -37,8 +52,14 @@ mod tests {
 
     #[test]
     fn parses_ipv4_and_bracketed_ipv6_targets() {
-        assert_eq!(parse_host_port("example.com:443").unwrap(), ("example.com".to_owned(), 443));
-        assert_eq!(parse_host_port("[::1]:443").unwrap(), ("::1".to_owned(), 443));
+        assert_eq!(
+            parse_host_port("example.com:443").unwrap(),
+            ("example.com".to_owned(), 443)
+        );
+        assert_eq!(
+            parse_host_port("[::1]:443").unwrap(),
+            ("::1".to_owned(), 443)
+        );
     }
 
     #[test]

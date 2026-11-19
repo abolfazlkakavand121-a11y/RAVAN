@@ -48,6 +48,10 @@ pub fn emit(report: &DiagnosticReport, json: bool) {
     let state = if report.success { "SUCCESS" } else { "FAILED" };
     println!("[{state}] {} — {}", report.check, report.target);
     println!("Elapsed: {} ms", report.elapsed_ms);
-    if !report.details.is_null() { println!("Details: {}", report.details); }
-    if let Some(error) = &report.error { println!("Error: {error}"); }
+    if !report.details.is_null() {
+        println!("Details: {}", report.details);
+    }
+    if let Some(error) = &report.error {
+        println!("Error: {error}");
+    }
 }

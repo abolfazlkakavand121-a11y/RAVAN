@@ -26,10 +26,13 @@ pub(crate) async fn connect_tls(host: &str, port: u16) -> Result<TlsStream<TcpSt
     let stream = timeout(Duration::from_secs(10), TcpStream::connect((host, port)))
         .await
         .context("TCP connection timed out")??;
-    let tls = timeout(Duration::from_secs(10), connector()?.connect(server_name(host)?, stream))
-        .await
-        .context("TLS handshake timed out")?
-        .context("TLS handshake failed")?;
+    let tls = timeout(
+        Duration::from_secs(10),
+        connector()?.connect(server_name(host)?, stream),
+    )
+    .await
+    .context("TLS handshake timed out")?
+    .context("TLS handshake failed")?;
     Ok(tls)
 }
 
@@ -37,21 +40,36 @@ pub async fn run(target: &str) -> DiagnosticReport {
     let started = std::time::Instant::now();
     let (host, port) = match parse_host_port(target) {
         Ok(value) => value,
-        Err(error) => return DiagnosticReport::failure("TLS", target, started.elapsed().as_millis(), error),
+        Err(error) => {
+            return DiagnosticReport::failure("TLS", target, started.elapsed().as_millis(), error)
+        }
     };
 
     match connect_tls(&host, port).await {
         Ok(stream) => {
             let connection = stream.get_ref().1;
-            let version = connection.protocol_version().map(|value| format!("{value:?}")).unwrap_or_else(|| "unknown".to_owned());
-            let cipher = connection.negotiated_cipher_suite().map(|value| format!("{:?}", value.suite())).unwrap_or_else(|| "unknown".to_owned());
-            DiagnosticReport::success("TLS", target, started.elapsed().as_millis(), json!({
-                "handshake": "completed",
-                "tls_version": version,
-                "cipher_suite": cipher,
-                "certificate_validation": "enabled"
-            }))
+            let version = connection
+                .protocol_version()
+                .map(|value| format!("{value:?}"))
+                .unwrap_or_else(|| "unknown".to_owned());
+            let cipher = connection
+                .negotiated_cipher_suite()
+                .map(|value| format!("{:?}", value.suite()))
+                .unwrap_or_else(|| "unknown".to_owned());
+            DiagnosticReport::success(
+                "TLS",
+                target,
+                started.elapsed().as_millis(),
+                json!({
+                    "handshake": "completed",
+                    "tls_version": version,
+                    "cipher_suite": cipher,
+                    "certificate_validation": "enabled"
+                }),
+            )
         }
-        Err(error) => DiagnosticReport::failure("TLS", target, started.elapsed().as_millis(), error),
+        Err(error) => {
+            DiagnosticReport::failure("TLS", target, started.elapsed().as_millis(), error)
+        }
     }
 }

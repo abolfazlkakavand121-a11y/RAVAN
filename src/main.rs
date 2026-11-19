@@ -27,9 +27,20 @@ async fn main() -> Result<()> {
             let path = config::config_path()?;
             let cfg = config::Config::load()?;
             println!("RAVAN {} — local diagnostics", env!("CARGO_PKG_VERSION"));
-            println!("Platform: {} / {}", std::env::consts::OS, std::env::consts::ARCH);
+            println!(
+                "Platform: {} / {}",
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            );
             println!("Configuration: {}", path.display());
-            println!("Configuration status: {}", if path.exists() { "found" } else { "using safe defaults" });
+            println!(
+                "Configuration status: {}",
+                if path.exists() {
+                    "found"
+                } else {
+                    "using safe defaults"
+                }
+            );
             println!("SOCKS5 listen address: {}", cfg.proxy.listen_addr);
             println!("Network tests: not run; use an explicit diagnostic command.");
         }
@@ -37,7 +48,11 @@ async fn main() -> Result<()> {
             let cfg = config::Config::load().context("load RAVAN configuration")?;
             let address = match args.listen {
                 Some(value) => value,
-                None => cfg.proxy.listen_addr.parse().context("invalid proxy.listen_addr in config")?,
+                None => cfg
+                    .proxy
+                    .listen_addr
+                    .parse()
+                    .context("invalid proxy.listen_addr in config")?,
             };
             proxy::run(address, cfg.proxy).await?;
         }
@@ -45,23 +60,31 @@ async fn main() -> Result<()> {
             DiagnosticCommands::Dns { host, json } => {
                 let result = diagnostics::dns::run(&host).await;
                 report::emit(&result, json);
-                if !result.success { anyhow::bail!("DNS diagnostic failed"); }
+                if !result.success {
+                    anyhow::bail!("DNS diagnostic failed");
+                }
             }
             DiagnosticCommands::Tcp { target, json } => {
                 let result = diagnostics::tcp::run(&target).await;
                 report::emit(&result, json);
-                if !result.success { anyhow::bail!("TCP diagnostic failed"); }
+                if !result.success {
+                    anyhow::bail!("TCP diagnostic failed");
+                }
             }
             DiagnosticCommands::Tls { target, json } => {
                 let result = diagnostics::tls::run(&target).await;
                 report::emit(&result, json);
-                if !result.success { anyhow::bail!("TLS diagnostic failed"); }
+                if !result.success {
+                    anyhow::bail!("TLS diagnostic failed");
+                }
             }
             DiagnosticCommands::Http { url, json } => {
                 let parsed = url::Url::parse(&url).context("invalid URL")?;
                 let result = diagnostics::http::run(parsed).await;
                 report::emit(&result, json);
-                if !result.success { anyhow::bail!("HTTP diagnostic failed"); }
+                if !result.success {
+                    anyhow::bail!("HTTP diagnostic failed");
+                }
             }
         },
         Commands::Config(args) => match args.command {
