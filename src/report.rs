@@ -65,11 +65,18 @@ pub fn emit_analysis(report: &crate::diagnostics::analyzer::ProtocolAnalysisRepo
         return;
     }
 
-    let state = if report.success { "SUCCESS" } else { "INCOMPLETE" };
+    let state = if report.success {
+        "SUCCESS"
+    } else {
+        "INCOMPLETE"
+    };
     println!("[{state}] {} — {}", report.check, report.target);
     for stage in &report.stages {
         let stage_state = if stage.success { "PASS" } else { "FAIL" };
-        println!("  [{stage_state}] {} — {} ms", stage.check, stage.elapsed_ms);
+        println!(
+            "  [{stage_state}] {} — {} ms",
+            stage.check, stage.elapsed_ms
+        );
         if let Some(error) = &stage.error {
             println!("    Error: {error}");
         }
