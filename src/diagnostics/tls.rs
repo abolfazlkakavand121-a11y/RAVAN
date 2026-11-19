@@ -78,7 +78,6 @@ pub async fn run(target: &str) -> DiagnosticReport {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
