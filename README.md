@@ -4,7 +4,7 @@ RAVAN is an experimental, independent network diagnostics and local connectivity
 
 ## Project status
 
-RAVAN **v0.3.0** is an experimental Rust networking tool for Android and Termux. It currently includes the CLI, a local SOCKS5 TCP forwarder, configuration handling, DNS/TCP/TLS/HTTP diagnostics, and the Protocol Analyzer with per-address IP pinning and redirect-hop reporting.
+RAVAN **v0.4.0** is an experimental Rust networking tool for Android and Termux. It includes local SOCKS5 and HTTP proxy listeners, configuration handling, DNS/TCP/TLS/HTTP diagnostics, and the Protocol Analyzer with per-address IP pinning and redirect-hop reporting.
 
 The hosted CI pipeline checks formatting, runs Clippy and automated tests, builds a Linux release binary, and cross-builds Android ARM64. The Android binary has also been run manually on a Termux device: analyzer checks for IPv4/IPv6 and redirect handling passed, and the SOCKS5 listener was tested with several HTTPS destinations. These results demonstrate the tested paths only; they do not guarantee connectivity on every network.
 
@@ -14,6 +14,7 @@ The hosted CI pipeline checks formatting, runs Clippy and automated tests, build
 - ravan config init
 - ravan config show
 - ravan proxy
+- ravan http-proxy (HTTP forwarding and HTTPS CONNECT)
 - ravan diag dns example.com
 - ravan diag tcp example.com:443
 - ravan diag tls example.com:443
@@ -26,7 +27,7 @@ Diagnostic commands accept an optional --json flag.
 
 RAVAN is not a censorship-circumvention guarantee. A local proxy cannot restore reachability when a destination is blocked at the routing/IP layer, and it cannot bypass destination-side regional restrictions without an appropriate remote network path.
 
-The v0.3.0 local proxy forwards TCP bytes; it does not decrypt or modify TLS. It supports SOCKS5 TCP CONNECT only, binds to loopback only, and does not provide UDP, QUIC, an HTTP proxy listener, or system-wide VPN routing.
+The v0.4.0 local proxies bind to loopback only. SOCKS5 supports TCP CONNECT. The HTTP proxy supports ordinary HTTP forwarding and HTTPS CONNECT tunneling; it does not decrypt or modify TLS. Neither listener provides UDP, QUIC, authentication, or system-wide VPN routing.
 
 TLS diagnostics validate certificate chains and hostnames using public roots. RAVAN does not install a custom certificate authority or disable certificate verification.
 
