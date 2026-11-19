@@ -85,6 +85,6 @@ pub struct ConfigArgs {
 pub enum ConfigCommands {
     /// Create a default configuration without overwriting an existing file.
     Init,
-    /// Show effective settings (v0.1.0 stores no credentials).
+    /// Show effective local settings.
     Show,
 }
