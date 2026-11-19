@@ -63,9 +63,19 @@ impl Config {
             address.port() != 0,
             "proxy.listen_addr must use a non-zero port"
         );
-        let http_address: std::net::SocketAddr = self.proxy.http_listen_addr.parse().context("proxy.http_listen_addr must be a valid socket address")?;
-        anyhow::ensure!(http_address.ip().is_loopback(), "proxy.http_listen_addr must be a loopback address");
-        anyhow::ensure!(http_address.port() != 0, "proxy.http_listen_addr must use a non-zero port");
+        let http_address: std::net::SocketAddr = self
+            .proxy
+            .http_listen_addr
+            .parse()
+            .context("proxy.http_listen_addr must be a valid socket address")?;
+        anyhow::ensure!(
+            http_address.ip().is_loopback(),
+            "proxy.http_listen_addr must be a loopback address"
+        );
+        anyhow::ensure!(
+            http_address.port() != 0,
+            "proxy.http_listen_addr must use a non-zero port"
+        );
         anyhow::ensure!(
             (1..=30).contains(&self.proxy.handshake_timeout_secs),
             "handshake_timeout_secs must be between 1 and 30"
