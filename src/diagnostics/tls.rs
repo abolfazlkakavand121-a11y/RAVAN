@@ -130,8 +130,7 @@ mod tests {
         )
         .await
         .expect("TLS test handshake should finish");
-        assert!(result.is_ok());
-        drop(result);
+        let _tls = result.expect("trusted certificate and hostname should be accepted");
         server.await.unwrap();
     }
 
