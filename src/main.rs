@@ -56,7 +56,11 @@ async fn main() -> Result<()> {
             };
             proxy::run(address, cfg.proxy).await?;
         }
-        Commands::Analyze { url, json, ip_family } => {
+        Commands::Analyze {
+            url,
+            json,
+            ip_family,
+        } => {
             let parsed = url::Url::parse(&url).context("invalid analysis URL")?;
             let result = diagnostics::analyzer::run_with_family(parsed, &ip_family).await;
             report::emit_analysis(&result, json);
